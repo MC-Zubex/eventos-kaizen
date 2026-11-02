@@ -816,6 +816,7 @@ function viewProyecto(){
     <section class="panel"><div class="ptitle"><h3>Carátula</h3><span class="muted" style="font-size:13px">Avance ${Number(k.avance)||0}%</span></div>
       <dl class="dl">
         <dt>Objetivo</dt><dd>${esc(k.detalle||'—')}</dd>
+        <dt>Prework</dt><dd>${k.prework?`${esc(k.prework.archivo)}, cargado el ${fd(k.prework.fecha)}`:'Sin cargar'}</dd>
         <dt>Descripción</dt><dd class="txt">${esc(k.descripcion||'—')}</dd>
         <dt>Propósito</dt><dd class="txt">${esc(k.proposito||'—')}</dd>
         <dt>Beneficios</dt><dd class="txt">${esc(k.beneficios||'—')}</dd>
@@ -1065,7 +1066,7 @@ function projectModal(k){
   openModal(`
   <div class="mhead"><h2>${isNew?'Registrar kaizen':'Editar carátula'}</h2><button data-close aria-label="Cerrar">×</button></div>
   <div class="mbody">
-    <div class="pwbox"><div><b>Cargar desde el Excel de prework</b><div class="hint">Llena la carátula con los datos de la hoja Pre-work: descripción, propósito, beneficios, impacto al cliente, tipo de evento, fechas, métricos, ahorro estimado y equipo. Revisa los campos y después guarda.</div><div class="hint" id="pw_msg" style="margin-top:6px;font-weight:500"></div></div><label class="btn sm pwbtn">Elegir archivo de prework<input type="file" id="pw_file" accept=".xls,.xlsx,.xlsm" hidden></label></div>
+    <div class="pwbox"><div><b>Cargar desde el Excel de prework</b>${isNew?' <span class="pill st-Atrasado">Obligatorio</span>':''}<div class="hint">${isNew?'Para registrar un kaizen nuevo es obligatorio cargar su prework. ':(k.prework?`Prework cargado: ${esc(k.prework.archivo)}. `:'')}Llena la carátula con los datos de la hoja Pre-work: descripción, propósito, beneficios, impacto al cliente, tipo de evento, fechas, métricos, ahorro estimado y equipo. Revisa los campos y después guarda.</div><div class="hint" id="pw_msg" style="margin-top:6px;font-weight:500"></div></div><label class="btn sm pwbtn">Elegir archivo de prework<input type="file" id="pw_file" accept=".xls,.xlsx,.xlsm" hidden></label></div>
     <fieldset><legend>Enfoque del kaizen</legend><div class="fg">
       <label>Clave<input id="f_clave" value="${esc(k.clave??nextClave)}"></label>
       <label class="c2">Nombre del evento<input id="f_nombre" value="${esc(k.nombre)}" required></label>
@@ -1093,11 +1094,11 @@ function projectModal(k){
       <label class="c4">Observaciones<textarea id="f_obs">${esc(k.observaciones)}</textarea></label>
     </div></fieldset>
     <fieldset><legend>Métrico primario y ahorros</legend><div class="fg">
-      <label class="c2">Métrico<input id="m_nom" value="${esc(m.nombre)}" placeholder="Ej. Tiempo de captura por bobina"></label>
+      <label class="c2">Métrico primario *<input id="m_nom" value="${esc(m.nombre)}" placeholder="Ej. Tiempo de captura por bobina"></label>
       <label>Unidad<input id="m_uni" value="${esc(m.unidad)}" placeholder="s, kg, %, min"></label>
       <label>Sentido de mejora<select id="m_sen"><option value="reducir" ${m.sentido!=='aumentar'?'selected':''}>Reducir</option><option value="aumentar" ${m.sentido==='aumentar'?'selected':''}>Aumentar</option></select></label>
-      <label>Línea base<input type="number" step="any" id="m_base" value="${esc(m.base)}"></label>
-      <label>Meta<input type="number" step="any" id="m_meta" value="${esc(m.meta)}"></label>
+      <label>Línea base *<input type="number" step="any" id="m_base" value="${esc(m.base)}"></label>
+      <label>Meta *<input type="number" step="any" id="m_meta" value="${esc(m.meta)}"></label>
       <label>Resultado<input type="number" step="any" id="m_res" value="${esc(m.resultado)}"></label>
       <span></span>
       <label class="c2">Ahorro estimado (MXN)<input type="number" step="any" id="f_ahE" value="${esc(k.ahorroEstimado)}"></label>
@@ -1126,6 +1127,7 @@ function projectModal(k){
   msBox.innerHTML=(k.metricosSec||[]).map(msRow).join('');
   modal.querySelector('#ms_add').onclick=()=>{ msBox.insertAdjacentHTML('beforeend',msRow()); const r=msBox.lastElementChild.querySelector('.ms_nom'); if(r) r.focus(); };
   msBox.addEventListener('click',e=>{ const d=e.target.closest('.ms_del'); if(d) d.closest('.ms').remove(); });
+  let pwFile=null;
   modal.querySelector('#pw_file').addEventListener('change', async e=>{
     const f=e.target.files[0]; if(!f) return; const msg=modal.querySelector('#pw_msg'); msg.style.color=''; msg.textContent='Leyendo el prework…';
     try{
@@ -1148,6 +1150,7 @@ function projectModal(k){
       if(set('f_ahE',p.ahorro)) done.push('ahorro estimado');
       if(p.secundario.nombre && ![...msBox.querySelectorAll('.ms_nom')].some(i=>i.value.trim().toLowerCase()===p.secundario.nombre.toLowerCase())){ msBox.insertAdjacentHTML('beforeend',msRow(p.secundario)); done.push('métrico secundario'); }
       if(p.equipo.length){ set('f_eq',p.equipo.map(x=>x.rol?`${x.nombre}, ${x.rol}`:x.nombre).join('\n')); done.push(`equipo (${p.equipo.length} integrantes)`); }
+      if(done.length) pwFile={archivo:f.name,fecha:iso(today())};
       msg.style.color = done.length ? 'var(--ok)' : 'var(--bad)';
       msg.textContent = done.length ? `Se llenó: ${done.join(', ')}. Revisa los datos y da clic en Guardar.${p.notas.length?' '+p.notas.join(' '):''}` : 'El prework no tiene datos en los campos esperados.';
     }catch(err){ msg.style.color='var(--bad)'; msg.textContent='No se pudo leer el archivo. Verifica que sea el formato de prework en Excel y que tengas conexión a internet.'; }
@@ -1155,7 +1158,13 @@ function projectModal(k){
   });
   modal.querySelector('#f_save').onclick = async ()=>{
     const nombre=v('f_nombre').trim();
-    if(!nombre){ modal.querySelector('#f_err').textContent='Escribe el nombre del evento.'; return; }
+    const ferr=modal.querySelector('#f_err'); const stop=t=>{ ferr.textContent=t; ferr.scrollIntoView({block:'center',behavior:'smooth'}); };
+    if(isNew && !pwFile){ stop('Carga el Excel de prework antes de registrar el kaizen (recuadro azul al inicio de esta ventana).'); return; }
+    if(!nombre){ stop('Escribe el nombre del evento.'); return; }
+    if(!modal.querySelector('#f_canc').checked){
+      const miss=[]; if(!v('m_nom').trim()) miss.push('nombre del métrico'); if(num(v('m_base'))===null) miss.push('línea base'); if(num(v('m_meta'))===null) miss.push('meta');
+      if(miss.length){ stop(`No se puede guardar sin los objetivos del métrico primario. Falta: ${miss.join(', ')}. Cárgalos desde el prework o captúralos en la sección Métrico primario y ahorros.`); return; }
+    }
     if(v('f_ini') && v('f_fin') && v('f_fin')<v('f_ini')){ modal.querySelector('#f_err').textContent='La fecha fin no puede ser anterior a la de inicio.'; return; }
     const equipo=v('f_eq').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const i=l.indexOf(','); return i>0?{nombre:l.slice(0,i).trim(),rol:l.slice(i+1).trim()}:{nombre:l,rol:''};});
     const data={
@@ -1165,6 +1174,7 @@ function projectModal(k){
       inicio:v('f_ini'), fin:v('f_fin'), fechaCierre:v('f_cierre'), pasoActual:Number(v('f_paso'))||1, avance:Math.max(0,Math.min(100,Number(v('f_av'))||0)),
       causaAtraso:v('f_causa'), cancelado:modal.querySelector('#f_canc').checked, observaciones:v('f_obs'),
       metrico:{nombre:v('m_nom').trim(),unidad:v('m_uni').trim(),sentido:v('m_sen'),base:num(v('m_base')),meta:num(v('m_meta')),resultado:num(v('m_res'))},
+      prework: pwFile || k.prework || null,
       metricosSec:[...modal.querySelectorAll('.ms')].map(r=>({nombre:r.querySelector('.ms_nom').value.trim(),unidad:r.querySelector('.ms_uni').value.trim(),sentido:r.querySelector('.ms_sen').value,base:num(r.querySelector('.ms_base').value),meta:num(r.querySelector('.ms_meta').value),resultado:num(r.querySelector('.ms_res').value)})).filter(x=>x.nombre),
       ahorroEstimado:num(v('f_ahE')), ahorroValidado:num(v('f_ahV')), equipo,
       actualizado:new Date().toISOString(), actualizadoPor:S.me||null
