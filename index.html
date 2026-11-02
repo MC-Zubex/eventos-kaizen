@@ -654,7 +654,7 @@ function renderResults(){
   const el=document.getElementById('results'); if(!el) return;
   const ks=filtered();
   if(!S.kaizens.length){
-    el.innerHTML = `<div class="notice">Aún no hay kaizens registrados. ${writable()?'Usa <b>Registrar kaizen</b> para dar de alta el primero.':''}</div>`; return;
+    el.innerHTML = `<div class="notice">Aún no hay kaizens registrados. ${writable()?'Usa <b>Registrar kaizen</b> para dar de alta el primero, o trae los datos de la aplicación de Claude con <b>Importar datos de Claude</b>.<div style="margin-top:14px"><button class="btn pri" data-act="importmig">Importar datos de Claude</button></div>':''}</div>`; return;
   }
   const by=s=>ks.filter(k=>statusOf(k)===s);
   const cerr=by('Cerrado'), atr=by('Atrasado'), proc=by('En proceso'), canc=by('Cancelado');
