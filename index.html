@@ -1020,42 +1020,69 @@ function pwDate(x){
 }
 function pwVal(x){
   if(typeof x==='number') return {v:x,time:false};
-  const s=String(x??'').replace(/,/g,'');
+  const s=String(x??'').replace(/[$,]/g,'');
   const tm=s.match(/(\d+):(\d{2})/); if(tm) return {v:Number(tm[1])*60+Number(tm[2]),time:true};
   const f=s.match(/-?\d+(\.\d+)?/); return {v:f?Number(f[0]):null,time:false};
 }
 function parsePrework(wb){
+  const X=window.XLSX;
   const name=wb.SheetNames.find(n=>n.toLowerCase().replace(/[\s\-_]/g,'').includes('prework'));
   if(!name) return null; const ws=wb.Sheets[name];
-  const raw=a=>{ const c=ws[a]; return c?c.v:null; };
-  const t=a=>{ const x=raw(a); if(x===null||x===undefined) return ''; if(x instanceof Date) return pwDate(x); return String(x).trim(); };
-  const after=(a,label)=>t(a).replace(new RegExp('^\\s*'+label+'\\s*:?','i'),'').trim();
+  const rg=X.utils.decode_range(ws['!ref']||'A1:A1');
+  const C=l=>l.charCodeAt(0)-65;
+  const raw=(r,c)=>{ const x=ws[X.utils.encode_cell({r,c})]; return x?x.v:null; };
+  const t=(r,c)=>{ const x=raw(r,c); if(x===null||x===undefined) return ''; if(x instanceof Date) return pwDate(x); return String(x).trim(); };
+  const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+  const findRow=(col,re,from=0,to=rg.e.r)=>{ for(let r=from;r<=to;r++){ if(re.test(norm(t(r,col)))) return r; } return -1; };
+  const findAny=(re,from=0)=>{ for(let r=from;r<=rg.e.r;r++) for(let c=0;c<=rg.e.c;c++) if(re.test(norm(t(r,c)))) return {r,c}; return null; };
+  const after=(r,c,label)=>t(r,c).replace(new RegExp('^\\s*'+label+'\\s*:?','i'),'').replace(/\s+/g,' ').trim();
   const notas=[];
-  const metric=(cN,cB,cT)=>{
-    const nombre=t(cN); if(!nombre) return {};
-    const bt=t(cB), tt=t(cT); const b=pwVal(raw(cB)); const g=pwVal(raw(cT));
-    let unidad=''; if(b.time) unidad='s'; else { const u=bt.match(/\d[\d.,]*\s*(%|[a-zA-Záéíóúñ]+)/); if(u) unidad=u[1]; }
-    const sentido=/aument|increm|incre|subir|elevar/i.test(tt)?'aumentar':'reducir';
+  const metric=r=>{
+    const nombre=t(r,C('C')); if(!nombre) return {};
+    const bt=t(r,C('D')), tt=t(r,C('F')); const b=pwVal(raw(r,C('D'))); const g=pwVal(raw(r,C('F')));
+    let unidad=''; if(b.time) unidad='s'; else { const u=bt.replace(/[$,]/g,'').match(/\d[\d.]*\s*(%|[a-z\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1]+)/i); if(u) unidad=u[1]; }
+    const sentido=/aument|increm|subir|elevar/i.test(tt)?'aumentar':'reducir';
     let meta=g.v;
-    if(g.v!==null && /%/.test(tt) && /reduc|dismin|aument|increm|bajar|subir/i.test(tt) && b.v!==null && unidad!=='%'){ meta=Math.round(b.v*(sentido==='aumentar'?1+g.v/100:1-g.v/100)*100)/100; }
-    else if(g.time) meta=g.v;
+    if(/manten/i.test(tt) && b.v!==null) meta=b.v;
+    else if(g.v!==null && /%/.test(tt) && /reduc|dismin|aument|increm|bajar|subir/i.test(tt) && b.v!==null && unidad!=='%') meta=Math.round(b.v*(sentido==='aumentar'?1+g.v/100:1-g.v/100)*100)/100;
     if(b.v===null && bt) notas.push(`Revisa la línea base de “${nombre}”: no es un número (${bt}).`);
     if(meta===null && tt) notas.push(`Revisa la meta de “${nombre}”: no es un número (${tt}).`);
     return {nombre,unidad,sentido,base:b.v,meta,resultado:null};
   };
-  const cli=[['D9','Entregas a cliente'],['F9','Calidad'],['H9','Mejora en costo'],['J9','Otros']].map(([a,l])=>{ const x=after(a,l); return x?`${l}: ${x}`:''; }).filter(Boolean).join('\n');
-  const tipoIdx=['A13','C13','D13','F13'].findIndex(a=>/x/i.test(t(a)));
-  const inicio=pwDate(raw('K46'))||pwDate(after('K45','del'))||pwDate(raw('K44'));
-  const fin=pwDate(raw('L46'))||pwDate(after('L45','al'))||pwDate(raw('L44'));
+  const val=(re,col='D')=>{ const r=findRow(C('A'),re); return r>=0?t(r,C(col)):''; };
+  // Datos generales
+  const nombre=val(/^nombre del evento/), proposito=val(/^descripcion del proceso/), beneficios=val(/^beneficios/);
+  const rCli=findRow(C('A'),/^clientes/);
+  const cli=rCli<0?'':[['D','Entregas a cliente'],['F','Calidad'],['H','Mejora en costo'],['J','Otros']].map(([c,l])=>{ const x=after(rCli,C(c),l); return x?`${l}: ${x}`:''; }).filter(Boolean).join('\n');
+  const rTipo=findRow(C('A'),/^kaizen de 5/);
+  const tipoIdx=rTipo<0?-1:['A','C','D','F'].findIndex(c=>/^x$/i.test(t(rTipo+1,C(c)))||/^x$/i.test(t(rTipo,C(c))));
+  // Métrico primario y ahorro
+  const rP=findRow(C('A'),/^metrico primario/); const rS=findRow(C('A'),/^metrico secundario/); const rAut=findRow(C('A'),/^autorizacion/);
+  let mp={}, ahorro=null;
+  if(rP>=0){
+    const end=(rS>rP?rS:rP+8)-1; const hdr=findRow(C('C'),/^metricos$/,rP,end);
+    for(let r=(hdr>=0?hdr+1:rP+1);r<=end;r++){
+      if(!mp.nombre && t(r,C('C')) && !/^describir|^metricos$/.test(norm(t(r,C('C'))))) mp=metric(r);
+      if(ahorro===null){ const a=raw(r,C('I')); const v=pwVal(a).v; if(a!==null && a!=='' && v!==null && !/ahorro/i.test(String(a))) ahorro=v; }
+    }
+  }
+  // Métricos secundarios (pueden ser varios)
+  const sec=[];
+  if(rS>=0){
+    const end=(rAut>rS?rAut:rS+10)-1; const hdr=findRow(C('C'),/^metricos$/,rS,end);
+    for(let r=(hdr>=0?hdr+1:rS+1);r<=end;r++){ const n=t(r,C('C')); if(n && !/^describir|^metricos$/.test(norm(n))) sec.push(metric(r)); }
+  }
+  // Dueño, fechas y equipo
+  const dueno=val(/^dueno del area/,'C');
+  const fz=findAny(/se llevara a ?cabo/);
+  let inicio='', fin='';
+  if(fz){ for(const rr of [fz.r, fz.r+1, fz.r-1]){ inicio=inicio||pwDate(raw(rr,C('K'))); fin=fin||pwDate(raw(rr,C('L'))); } }
   const equipo=[];
-  for(let r=48;r<=54;r++){ const nm=t('I'+r); if(nm && !/^nombre$/i.test(nm)) equipo.push({nombre:nm,rol:t('L'+r)||'Integrante'}); }
-  const ah=pwVal(raw('I32')).v;
-  return {
-    nombre:t('D6'), descripcion:t('D6'), proposito:t('D7'), beneficios:t('D8'), cliente:cli,
-    tipo: tipoIdx>=0 ? TIPOS[tipoIdx] : '', dueno:t('C44'), inicio, fin,
-    metrico:metric('C32','D32','F32'), secundario:metric('C38','D38','F38'),
-    ahorro: ah, equipo, notas
-  };
+  let rT=-1; for(let r=0;r<=rg.e.r;r++){ if(norm(t(r,C('I')))==='nombre' && /^resp/.test(norm(t(r,C('L'))))){ rT=r; break; } }
+  if(rT>=0){ for(let r=rT+1;r<=Math.min(rg.e.r,rT+15);r++){ const nm=t(r,C('I')); if(!nm){ if(!t(r,C('G'))) break; else continue; } equipo.push({nombre:nm,rol:t(r,C('L'))||'Integrante'}); } }
+  if(!mp.nombre) notas.push('No encontré el métrico primario en el prework: captúralo a mano.');
+  return { nombre, descripcion:nombre, proposito, beneficios, cliente:cli, tipo: tipoIdx>=0 ? TIPOS[tipoIdx] : '', dueno, inicio, fin,
+    metrico:mp, secundarios:sec, ahorro, equipo, notas };
 }
 
 function projectModal(k){
@@ -1149,7 +1176,7 @@ function projectModal(k){
       if(set('f_fin',p.fin)) done.push('fecha fin');
       if(p.metrico.nombre){ set('m_nom',p.metrico.nombre); set('m_base',p.metrico.base); set('m_meta',p.metrico.meta); set('m_uni',p.metrico.unidad); set('m_sen',p.metrico.sentido); done.push('métrico primario'); }
       if(set('f_ahE',p.ahorro)) done.push('ahorro estimado');
-      if(p.secundario.nombre && ![...msBox.querySelectorAll('.ms_nom')].some(i=>i.value.trim().toLowerCase()===p.secundario.nombre.toLowerCase())){ msBox.insertAdjacentHTML('beforeend',msRow(p.secundario)); done.push('métrico secundario'); }
+      let nSec=0; (p.secundarios||[]).forEach(s=>{ if(s.nombre && ![...msBox.querySelectorAll('.ms_nom')].some(i=>i.value.trim().toLowerCase()===s.nombre.toLowerCase())){ msBox.insertAdjacentHTML('beforeend',msRow(s)); nSec++; } }); if(nSec) done.push(nSec===1?'métrico secundario':`${nSec} métricos secundarios`);
       if(p.equipo.length){ set('f_eq',p.equipo.map(x=>x.rol?`${x.nombre}, ${x.rol}`:x.nombre).join('\n')); done.push(`equipo (${p.equipo.length} integrantes)`); }
       if(done.length) pwFile={archivo:f.name,fecha:iso(today())};
       msg.style.color = done.length ? 'var(--ok)' : 'var(--bad)';
