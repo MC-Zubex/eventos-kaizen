@@ -108,6 +108,13 @@ body.wide main{padding:16px 24px}
 /* tabla */
 .tablewrap{overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;max-height:max(340px,calc(100vh - 250px - env(safe-area-inset-top,0px)))}
 .tablewrap th{position:sticky;top:0;z-index:1}
+.segtbl td.nm{min-width:140px;width:17%}
+.segtbl td.nm span{font-size:12px}
+.segtbl td.nm b{font-size:14.5px}
+.segtbl td.mt{min-width:110px;font-size:12px;line-height:1.45}
+.segtbl td.sc{min-width:86px}
+.segtbl td .btn.sm{padding:4px 8px;font-size:12px}
+.segtbl td .pill{white-space:normal}
 table{border-collapse:collapse;width:100%;font-size:12px}
 th{background:var(--zx);color:#fff;font-weight:500;text-align:left;padding:9px 6px;font-size:12px;vertical-align:bottom;line-height:1.25}
 td{padding:10px 6px;border-top:1px solid var(--line);vertical-align:top}
@@ -757,16 +764,16 @@ function segSheet(ks){
     <div class="kpi"><div class="v ${cnt('No sostenido')?'bad':''}">${cnt('No sostenido')}</div><div class="l">No sostenidos</div><div class="s">Al menos un mes no se sostuvo</div></div>
     <div class="kpi"><div class="v ${venc?'bad':'ok'}">${venc}</div><div class="l">Revisiones vencidas</div><div class="s">Ya pasó la fecha sin resultado</div></div>
   </section>
-  <div class="tablewrap" style="max-height:max(340px,calc(100vh - 360px))"><table>
-    <thead><tr><th>Clave</th><th>Proyecto</th><th>Área</th><th>Líder</th><th>Cierre oficial</th><th>Línea base</th><th>Meta</th><th>Al cierre</th><th>Mes 1<br>(30 días)</th><th>Mes 2<br>(60 días)</th><th>Mes 3<br>(90 días)</th><th>Estado</th><th>Presentación</th></tr></thead>
+  <div class="tablewrap" style="max-height:max(340px,calc(100vh - 360px))"><table class="segtbl">
+    <thead><tr><th>Clave</th><th>Proyecto</th><th>Área</th><th>Líder</th><th>Cierre oficial</th><th>Métrico primario</th><th>Mes 1<br>(30 días)</th><th>Mes 2<br>(60 días)</th><th>Mes 3<br>(90 días)</th><th>Estado</th><th>Presentación</th></tr></thead>
     <tbody>${cl.length? cl.map(k=>{const m=k.metrico||{}; const u=esc(m.unidad||''); const e=segEstado(k); return `<tr style="cursor:default">
       <td>${esc(k.clave)}</td>
       <td class="nm"><b><a href="#${esc(k.id)}" data-open="${esc(k.id)}" style="color:inherit;text-decoration:none">${esc(k.nombre)}</a></b><span>${m.nombre?esc(m.nombre):'Sin métrico primario capturado'}</span></td>
       <td>${areaTag(k.area)}</td><td>${esc(k.lider)}</td><td class="nowrap">${fds(k.fechaCierre)}</td>
-      <td class="nowrap">${val(m.base,u)}</td><td class="nowrap">${val(m.meta,u)}</td><td class="nowrap" style="font-weight:600">${val(m.resultado,u)}</td>
+      <td class="mt"><div><span class="hint">Base:</span> ${val(m.base,u)}</div><div><span class="hint">Meta:</span> ${val(m.meta,u)}</div><div><span class="hint">Al cierre:</span> <b>${val(m.resultado,u)}</b></div></td>
       ${cell(k,30)}${cell(k,60)}${cell(k,90)}
       <td><span class="pill ${e[1]}">${e[0]}</span></td>
-      <td class="nowrap">${k.presentacion?`<a class="btn sm" href="${esc(blobUrl(k.presentacion.id))}" target="_blank" rel="noopener">Ver PDF</a>${w?`<div><button class="btn ghost sm" style="padding:3px 0 0" data-uppres="${esc(k.id)}">Cambiar</button></div>`:''}`:(w?`<button class="btn sm" style="border-color:#ea580c;color:#c2410c" data-uppres="${esc(k.id)}">Subir PDF</button>`:'<span class="hint">Sin cargar</span>')}</td></tr>`;}).join('') : `<tr><td colspan="13" class="empty">No hay kaizens cerrados con estos filtros.</td></tr>`}</tbody>
+      <td class="nowrap">${k.presentacion?`<a class="btn sm" href="${esc(blobUrl(k.presentacion.id))}" target="_blank" rel="noopener">Ver PDF</a>${w?`<div><button class="btn ghost sm" style="padding:3px 0 0" data-uppres="${esc(k.id)}">Cambiar</button></div>`:''}`:(w?`<button class="btn sm" style="border-color:#ea580c;color:#c2410c" data-uppres="${esc(k.id)}">Subir PDF</button>`:'<span class="hint">Sin cargar</span>')}</td></tr>`;}).join('') : `<tr><td colspan="11" class="empty">No hay kaizens cerrados con estos filtros.</td></tr>`}</tbody>
   </table></div>`;
 }
 
