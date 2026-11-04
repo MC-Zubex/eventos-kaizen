@@ -565,12 +565,13 @@ function segPendientes(k){
 }
 function cumplimiento(m){
   if(!m) return null; const b=num(m.base), t=num(m.meta), r=num(m.resultado);
+  if(m.sentido==='mantener'){ const ref=t!==null?t:b; if(ref===null||r===null||ref===0) return null; const v=(r-ref)/ref; return {mejora:v, meta:null, logrado:Math.abs(v)<=0.05, mantener:true}; }
   if(b===null||r===null||b===0) return null;
   const mejora = m.sentido==='aumentar' ? (r-b)/b : (b-r)/b;
   const meta = t===null?null:(m.sentido==='aumentar' ? (t-b)/b : (b-t)/b);
   return {mejora, meta, logrado: meta===null?null: mejora>=meta};
 }
-function fmtMej(m,c){ const p=Math.abs(Math.round(c.mejora*100)); const up=m.sentido==='aumentar'; return ((c.mejora>=0)===up?'+':'−')+p+'%'; }
+function fmtMej(m,c){ const p=Math.abs(Math.round(c.mejora*100)); if(c.mantener) return (c.logrado?'Se mantiene ':'Variación ')+(c.mejora>=0?'+':'−')+p+'%'; const up=m.sentido==='aumentar'; return ((c.mejora>=0)===up?'+':'−')+p+'%'; }
 function writable(){ return !!S.db && S.canWrite!==false && !S.readOnly; }
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),3200); }
 async function safeWrite(fn, okMsg){
@@ -609,7 +610,7 @@ render();
 function render(){
   const inP = S.view==='proyecto' && !!current();
   $('#btnNew').hidden = !writable() || inP;
-  $('#pacts').innerHTML = inP ? `<button class="btn sm" data-act="deck">Ver como presentación</button>${writable()?'<button class="btn pri sm" data-act="edit">Editar carátula</button>':''}` : '';
+  $('#pacts').innerHTML = inP ? `<button class="btn sm" data-act="deck">Ver presentación</button>${writable()?'<button class="btn pri sm" data-act="edit">Editar carátula</button>':''}` : '';
   document.body.classList.toggle('wide', S.view==='resumen' && (S.hoja==='maestra'||S.hoja==='seguimiento'));
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on', S.view==='resumen' && b.dataset.hoja===S.hoja));
   $('#pie').textContent = `Generado: ${fd(iso(today()))}. Mejora Continua, Zubex Industrial.`;
@@ -763,6 +764,11 @@ function segSheet(ks){
 }
 
 /* ========= Vista de proyecto ========= */
+function openPres(k){
+  if(!k) return;
+  if(!k.presentacion){ toast(writable()?'Este kaizen todavía no tiene presentación. Súbela en Editar carátula, sección Presentación de cierre.':'Este kaizen todavía no tiene presentación cargada.'); return; }
+  window.open(blobUrl(k.presentacion.id),'_blank','noopener');
+}
 function current(){ return S.kaizens.find(k=>k.id===S.openId); }
 function openProject(id){
   S.view='proyecto'; S.openId=id; S.tab='P'; S.avances=[];
@@ -818,6 +824,7 @@ function viewProyecto(){
       <dl class="dl">
         <dt>Objetivo</dt><dd>${esc(k.detalle||'—')}</dd>
         <dt>Prework</dt><dd>${k.prework?`${esc(k.prework.archivo)}, cargado el ${fd(k.prework.fecha)}`:'Sin cargar'}</dd>
+        <dt>Presentación</dt><dd>${k.presentacion?`<a href="${esc(blobUrl(k.presentacion.id))}" target="_blank" rel="noopener">${esc(k.presentacion.nombre)}</a>, cargada el ${fd(k.presentacion.fecha)}`:'Sin cargar'}</dd>
         <dt>Descripción</dt><dd class="txt">${esc(k.descripcion||'—')}</dd>
         <dt>Propósito</dt><dd class="txt">${esc(k.proposito||'—')}</dd>
         <dt>Beneficios</dt><dd class="txt">${esc(k.beneficios||'—')}</dd>
@@ -900,7 +907,7 @@ document.addEventListener('click', e=>{
   if(a==='edit') return projectModal(current());
   if(a==='addav') return avanceModal(current(),S.tab,null);
   if(a==='addpend') return pendModal(current(),null);
-  if(a==='deck') return openDeck(current());
+  if(a==='deck') return openPres(current());
   if(a==='export') return exportExcel(t);
   if(a==='importmig') return importMigracion(t);
 });
@@ -977,8 +984,8 @@ async function exportExcel(btn){
       'Equipo':(k.equipo||[]).map(p=>p.rol?`${p.nombre} (${p.rol})`:p.nombre).join('; '),
       'Estado del seguimiento':st==='Cerrado'?segEstado(k)[0]:'',
       'Mes 1 valor':sg[30]?.valor??'', 'Mes 1':ok(sg[30]?.sostenido), 'Mes 2 valor':sg[60]?.valor??'', 'Mes 2':ok(sg[60]?.sostenido), 'Mes 3 valor':sg[90]?.valor??'', 'Mes 3':ok(sg[90]?.sostenido),
-      'Avances PDCA':(avs[k.id]||[]).length };});
-    const msRows=ks.flatMap(k=>(k.metricosSec||[]).map(x=>({'Clave':k.clave,'Proyecto':k.nombre,'Métrico secundario':x.nombre,'Unidad':x.unidad||'','Sentido':x.sentido==='aumentar'?'Aumentar':'Reducir','Línea base':x.base??'','Meta':x.meta??'','Resultado':x.resultado??'','% de mejora':mej(x)})));
+      'Presentación':k.presentacion?k.presentacion.nombre:'', 'Avances PDCA':(avs[k.id]||[]).length };});
+    const msRows=ks.flatMap(k=>(k.metricosSec||[]).map(x=>({'Clave':k.clave,'Proyecto':k.nombre,'Métrico secundario':x.nombre,'Unidad':x.unidad||'','Sentido':x.sentido==='aumentar'?'Aumentar':x.sentido==='mantener'?'Mantener':'Reducir','Línea base':x.base??'','Meta':x.meta??'','Resultado':x.resultado??'','% de mejora':mej(x)})));
     const avRows=ks.flatMap(k=>(avs[k.id]||[]).sort((a,b)=>PDCA_ORDER.indexOf(a.etapa)-PDCA_ORDER.indexOf(b.etapa)||(a.fecha||'').localeCompare(b.fecha||'')).map(a=>({'Clave':k.clave,'Proyecto':k.nombre,'Etapa':PDCA[a.etapa]?.n||a.etapa,'Fecha':D(a.fecha),'Título':a.titulo||'','Descripción':a.descripcion||'','Evidencias':(a.evidencias||[]).map(e=>e.name).join('; '),'Registró':a.autor?nameOf(a.autor):''})));
     const pRows=ks.flatMap(k=>(k.pendientes||[]).map(p=>({'Clave':k.clave,'Proyecto':k.nombre,'Acción':p.accion,'Responsable':p.responsable||'','Fecha compromiso':D(p.fecha),'Avance %':Number(p.avance)||0})));
     const sRows=ks.filter(k=>statusOf(k)==='Cerrado').flatMap(k=>[30,60,90].map(n=>{ const r=(k.seguimiento||{})[n]||{}; const due=addDays(k.fechaCierre,n); return {'Clave':k.clave,'Proyecto':k.nombre,'Cierre oficial':D(k.fechaCierre),'Mes':`Mes ${n/30} (${n} días)`,'Fecha programada':D(due),'Valor del métrico':r.valor??'','Unidad':(k.metrico||{}).unidad||'','Resultado':r.sostenido?ok(r.sostenido):(today()>=pd(due)?'Vencida':'Pendiente'),'Comentario':r.comentario||'','Fecha de registro':D(r.fecha)}; }));
@@ -1041,7 +1048,7 @@ function parsePrework(wb){
     const nombre=t(r,C('C')); if(!nombre) return {};
     const bt=t(r,C('D')), tt=t(r,C('F')); const b=pwVal(raw(r,C('D'))); const g=pwVal(raw(r,C('F')));
     let unidad=''; if(b.time) unidad='s'; else { const u=bt.replace(/[$,]/g,'').match(/\d[\d.]*\s*(%|[a-z\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1]+)/i); if(u) unidad=u[1]; }
-    const sentido=/aument|increm|subir|elevar/i.test(tt)?'aumentar':'reducir';
+    const sentido=/manten/i.test(tt)?'mantener':/aument|increm|subir|elevar/i.test(tt)?'aumentar':'reducir';
     let meta=g.v;
     if(/manten/i.test(tt) && b.v!==null) meta=b.v;
     else if(g.v!==null && /%/.test(tt) && /reduc|dismin|aument|increm|bajar|subir/i.test(tt) && b.v!==null && unidad!=='%') meta=Math.round(b.v*(sentido==='aumentar'?1+g.v/100:1-g.v/100)*100)/100;
@@ -1136,6 +1143,11 @@ function projectModal(k){
       <div id="ms_rows" style="display:flex;flex-direction:column;gap:10px"></div>
       <button type="button" class="btn sm" id="ms_add" style="margin-top:10px">Agregar métrico secundario</button>
     </fieldset>
+    <fieldset><legend>Presentación de cierre</legend>
+      ${k.presentacion?`<div class="hint" style="margin-bottom:8px">Presentación actual: <a href="${esc(blobUrl(k.presentacion.id))}" target="_blank" rel="noopener">${esc(k.presentacion.nombre)}</a>, cargada el ${fd(k.presentacion.fecha)}. Si subes otra, la reemplaza.</div>`:''}
+      <label>Presentación del evento en PDF<input type="file" id="f_pdf" accept="application/pdf,.pdf"></label>
+      <span class="hint">Obligatoria para registrar el cierre oficial. Para convertir tu PowerPoint: Archivo &gt; Guardar como &gt; PDF.</span>
+    </fieldset>
     <fieldset><legend>Equipo kaizen</legend>
       <label>Un integrante por renglón, con su rol después de una coma<textarea id="f_eq" rows="5" placeholder="Gamaliel Martínez, Líder del kaizen&#10;Jesús Ruiz, Integrante">${esc((k.equipo||[]).map(p=>p.rol?`${p.nombre}, ${p.rol}`:p.nombre).join('\n'))}</textarea></label>
       <span class="hint">De 3 a 5 integrantes según el estándar de eventos kaizen.</span>
@@ -1146,7 +1158,7 @@ function projectModal(k){
   const msRow = (x={}) => `<div class="fg ms">
     <label>Métrico<input class="ms_nom" value="${esc(x.nombre)}" placeholder="Ej. Uso de papel por turno"></label>
     <label>Unidad<input class="ms_uni" value="${esc(x.unidad)}"></label>
-    <label>Sentido<select class="ms_sen"><option value="reducir" ${x.sentido!=='aumentar'?'selected':''}>Reducir</option><option value="aumentar" ${x.sentido==='aumentar'?'selected':''}>Aumentar</option></select></label>
+    <label>Sentido<select class="ms_sen"><option value="reducir" ${!x.sentido||x.sentido==='reducir'?'selected':''}>Reducir</option><option value="aumentar" ${x.sentido==='aumentar'?'selected':''}>Aumentar</option><option value="mantener" ${x.sentido==='mantener'?'selected':''}>Mantener</option></select></label>
     <label>Línea base<input type="number" step="any" class="ms_base" value="${esc(x.base)}"></label>
     <label>Meta<input type="number" step="any" class="ms_meta" value="${esc(x.meta)}"></label>
     <label>Resultado<input type="number" step="any" class="ms_res" value="${esc(x.resultado)}"></label>
@@ -1174,7 +1186,7 @@ function projectModal(k){
       if(set('f_resp',p.dueno)) done.push('responsable del área');
       if(set('f_ini',p.inicio)) done.push('fecha de inicio');
       if(set('f_fin',p.fin)) done.push('fecha fin');
-      if(p.metrico.nombre){ set('m_nom',p.metrico.nombre); set('m_base',p.metrico.base); set('m_meta',p.metrico.meta); set('m_uni',p.metrico.unidad); set('m_sen',p.metrico.sentido); done.push('métrico primario'); }
+      if(p.metrico.nombre){ set('m_nom',p.metrico.nombre); set('m_base',p.metrico.base); set('m_meta',p.metrico.meta); set('m_uni',p.metrico.unidad); set('m_sen',p.metrico.sentido==='mantener'?'reducir':p.metrico.sentido); done.push('métrico primario'); }
       if(set('f_ahE',p.ahorro)) done.push('ahorro estimado');
       let nSec=0; (p.secundarios||[]).forEach(s=>{ if(s.nombre && ![...msBox.querySelectorAll('.ms_nom')].some(i=>i.value.trim().toLowerCase()===s.nombre.toLowerCase())){ msBox.insertAdjacentHTML('beforeend',msRow(s)); nSec++; } }); if(nSec) done.push(nSec===1?'métrico secundario':`${nSec} métricos secundarios`);
       if(p.equipo.length){ set('f_eq',p.equipo.map(x=>x.rol?`${x.nombre}, ${x.rol}`:x.nombre).join('\n')); done.push(`equipo (${p.equipo.length} integrantes)`); }
@@ -1194,6 +1206,17 @@ function projectModal(k){
       if(miss.length){ stop(`No se puede guardar sin los objetivos del métrico primario. Falta: ${miss.join(', ')}. Cárgalos desde el prework o captúralos en la sección Métrico primario y ahorros.`); return; }
     }
     if(v('f_ini') && v('f_fin') && v('f_fin')<v('f_ini')){ modal.querySelector('#f_err').textContent='La fecha fin no puede ser anterior a la de inicio.'; return; }
+    const pdfIn=modal.querySelector('#f_pdf'); const pdf=pdfIn && pdfIn.files[0];
+    if(pdf && !/pdf/i.test(pdf.type||'') && !/\.pdf$/i.test(pdf.name)){ stop('La presentación debe ser un archivo PDF.'); return; }
+    if(pdf && pdf.size>45*1024*1024){ stop('La presentación pesa más de 45 MB. Guárdala como un PDF más ligero e inténtalo de nuevo.'); return; }
+    if(v('f_cierre') && !k.fechaCierre && !k.presentacion && !pdf){ stop('Para registrar el cierre oficial, primero sube la presentación del evento en PDF (sección Presentación de cierre).'); return; }
+    let presentacion=k.presentacion||null;
+    if(pdf){
+      const b0=modal.querySelector('#f_save'); const lb0=b0.textContent; b0.disabled=true; b0.textContent='Subiendo presentación…';
+      try{ const r=await S.assets.upload(pdf); presentacion={id:r.id,nombre:pdf.name,fecha:iso(today()),por:S.me||null}; }
+      catch(e){ b0.disabled=false; b0.textContent=lb0; stop('No se pudo subir la presentación. Revisa tu conexión e inténtalo de nuevo.'); return; }
+      b0.disabled=false; b0.textContent=lb0;
+    }
     const equipo=v('f_eq').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const i=l.indexOf(','); return i>0?{nombre:l.slice(0,i).trim(),rol:l.slice(i+1).trim()}:{nombre:l,rol:''};});
     const data={
       clave:v('f_clave').trim(), nombre, tipoEvento:v('f_tipo'), detalle:v('f_detalle').trim(), descripcion:v('f_desc'), proposito:v('f_prop'), beneficios:v('f_ben'), impactoCliente:v('f_cli'),
@@ -1202,7 +1225,7 @@ function projectModal(k){
       inicio:v('f_ini'), fin:v('f_fin'), fechaCierre:v('f_cierre'), pasoActual:Number(v('f_paso'))||1, avance:Math.max(0,Math.min(100,Number(v('f_av'))||0)),
       causaAtraso:v('f_causa'), cancelado:modal.querySelector('#f_canc').checked, observaciones:v('f_obs'),
       metrico:{nombre:v('m_nom').trim(),unidad:v('m_uni').trim(),sentido:v('m_sen'),base:num(v('m_base')),meta:num(v('m_meta')),resultado:num(v('m_res'))},
-      prework: pwFile || k.prework || null,
+      prework: pwFile || k.prework || null, presentacion,
       metricosSec:[...modal.querySelectorAll('.ms')].map(r=>({nombre:r.querySelector('.ms_nom').value.trim(),unidad:r.querySelector('.ms_uni').value.trim(),sentido:r.querySelector('.ms_sen').value,base:num(r.querySelector('.ms_base').value),meta:num(r.querySelector('.ms_meta').value),resultado:num(r.querySelector('.ms_res').value)})).filter(x=>x.nombre),
       ahorroEstimado:num(v('f_ahE')), ahorroValidado:num(v('f_ahV')), equipo,
       actualizado:new Date().toISOString(), actualizadoPor:S.me||null
