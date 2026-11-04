@@ -1146,7 +1146,7 @@ function projectModal(k){
     <fieldset><legend>Presentación de cierre</legend>
       ${k.presentacion?`<div class="hint" style="margin-bottom:8px">Presentación actual: <a href="${esc(blobUrl(k.presentacion.id))}" target="_blank" rel="noopener">${esc(k.presentacion.nombre)}</a>, cargada el ${fd(k.presentacion.fecha)}. Si subes otra, la reemplaza.</div>`:''}
       <label>Presentación del evento en PDF<input type="file" id="f_pdf" accept="application/pdf,.pdf"></label>
-      <span class="hint">Obligatoria para registrar el cierre oficial. Para convertir tu PowerPoint: Archivo &gt; Guardar como &gt; PDF.</span>
+      <span class="hint">Obligatoria para registrar el cierre oficial. <b style="color:var(--bad)">El archivo no debe pesar más de 45 MB.</b> Para convertir tu PowerPoint: Archivo &gt; Guardar como &gt; PDF. Si pesa más, reduce las imágenes en PowerPoint con Archivo &gt; Comprimir imágenes.</span>
     </fieldset>
     <fieldset><legend>Equipo kaizen</legend>
       <label>Un integrante por renglón, con su rol después de una coma<textarea id="f_eq" rows="5" placeholder="Gamaliel Martínez, Líder del kaizen&#10;Jesús Ruiz, Integrante">${esc((k.equipo||[]).map(p=>p.rol?`${p.nombre}, ${p.rol}`:p.nombre).join('\n'))}</textarea></label>
