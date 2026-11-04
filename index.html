@@ -758,18 +758,33 @@ function segSheet(ks){
     <div class="kpi"><div class="v ${venc?'bad':'ok'}">${venc}</div><div class="l">Revisiones vencidas</div><div class="s">Ya pasó la fecha sin resultado</div></div>
   </section>
   <div class="tablewrap" style="max-height:max(340px,calc(100vh - 360px))"><table>
-    <thead><tr><th>Clave</th><th>Proyecto</th><th>Área</th><th>Líder</th><th>Cierre oficial</th><th>Línea base</th><th>Meta</th><th>Al cierre</th><th>Mes 1<br>(30 días)</th><th>Mes 2<br>(60 días)</th><th>Mes 3<br>(90 días)</th><th>Estado</th></tr></thead>
+    <thead><tr><th>Clave</th><th>Proyecto</th><th>Área</th><th>Líder</th><th>Cierre oficial</th><th>Línea base</th><th>Meta</th><th>Al cierre</th><th>Mes 1<br>(30 días)</th><th>Mes 2<br>(60 días)</th><th>Mes 3<br>(90 días)</th><th>Estado</th><th>Presentación</th></tr></thead>
     <tbody>${cl.length? cl.map(k=>{const m=k.metrico||{}; const u=esc(m.unidad||''); const e=segEstado(k); return `<tr style="cursor:default">
       <td>${esc(k.clave)}</td>
       <td class="nm"><b><a href="#${esc(k.id)}" data-open="${esc(k.id)}" style="color:inherit;text-decoration:none">${esc(k.nombre)}</a></b><span>${m.nombre?esc(m.nombre):'Sin métrico primario capturado'}</span></td>
       <td>${areaTag(k.area)}</td><td>${esc(k.lider)}</td><td class="nowrap">${fds(k.fechaCierre)}</td>
       <td class="nowrap">${val(m.base,u)}</td><td class="nowrap">${val(m.meta,u)}</td><td class="nowrap" style="font-weight:600">${val(m.resultado,u)}</td>
       ${cell(k,30)}${cell(k,60)}${cell(k,90)}
-      <td><span class="pill ${e[1]}">${e[0]}</span></td></tr>`;}).join('') : `<tr><td colspan="12" class="empty">No hay kaizens cerrados con estos filtros.</td></tr>`}</tbody>
+      <td><span class="pill ${e[1]}">${e[0]}</span></td>
+      <td class="nowrap">${k.presentacion?`<a class="btn sm" href="${esc(blobUrl(k.presentacion.id))}" target="_blank" rel="noopener">Ver PDF</a>${w?`<div><button class="btn ghost sm" style="padding:3px 0 0" data-uppres="${esc(k.id)}">Cambiar</button></div>`:''}`:(w?`<button class="btn sm" style="border-color:#ea580c;color:#c2410c" data-uppres="${esc(k.id)}">Subir PDF</button>`:'<span class="hint">Sin cargar</span>')}</td></tr>`;}).join('') : `<tr><td colspan="13" class="empty">No hay kaizens cerrados con estos filtros.</td></tr>`}</tbody>
   </table></div>`;
 }
 
 /* ========= Vista de proyecto ========= */
+function uploadPres(k){
+  if(!k || !S.assets) return;
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='application/pdf,.pdf';
+  inp.onchange=async()=>{
+    const f=inp.files[0]; if(!f) return;
+    if(!/pdf/i.test(f.type||'') && !/\.pdf$/i.test(f.name)){ toast('La presentación debe ser un archivo PDF.'); return; }
+    if(f.size>45*1024*1024){ toast('El archivo pesa más de 45 MB. Redúcelo e inténtalo de nuevo.'); return; }
+    toast(`Subiendo la presentación de ${k.nombre}…`);
+    try{ const r=await S.assets.upload(f);
+      await safeWrite(()=>S.db.doc('kaizens/'+k.id).update({presentacion:{id:r.id,nombre:f.name,fecha:iso(today()),por:S.me||null}}),'Presentación cargada');
+    }catch(e){ toast('No se pudo subir la presentación. Revisa tu conexión e inténtalo de nuevo.'); }
+  };
+  inp.click();
+}
 function openPres(k){
   if(!k) return;
   if(!k.presentacion){ toast(writable()?'Este kaizen todavía no tiene presentación. Súbela en Editar carátula, sección Presentación de cierre.':'Este kaizen todavía no tiene presentación cargada.'); return; }
@@ -896,7 +911,7 @@ function viewProyecto(){
 
 /* ========= Eventos ========= */
 document.addEventListener('click', e=>{
-  const t=e.target.closest('[data-hoja],[data-open],[data-act],[data-tab],[data-paso],[data-editav],[data-editpend],[data-seg],[data-segk],[data-zoom]');
+  const t=e.target.closest('[data-hoja],[data-open],[data-act],[data-tab],[data-paso],[data-editav],[data-editpend],[data-seg],[data-segk],[data-uppres],[data-zoom]');
   if(!t) return;
   if(t.dataset.hoja){ S.hoja=t.dataset.hoja; try{location.hash=S.hoja;}catch(e){} if(S.view==='proyecto') closeProject(); else render(); return; }
   if(t.dataset.open) return openProject(t.dataset.open);
@@ -904,6 +919,7 @@ document.addEventListener('click', e=>{
   if(t.dataset.paso){ const k=current(); const p=Number(t.dataset.paso); if(k && p!==Number(k.pasoActual)) safeWrite(()=>S.db.doc('kaizens/'+k.id).update({pasoActual:p,actualizado:new Date().toISOString()}), `Paso actualizado: ${STEPS[p-1]}`); return; }
   if(t.dataset.editav){ const a=S.avances.find(x=>x.id===t.dataset.editav); return avanceModal(current(),a.etapa,a); }
   if(t.dataset.editpend!==undefined){ return pendModal(current(),Number(t.dataset.editpend)); }
+  if(t.dataset.uppres){ return uploadPres(S.kaizens.find(x=>x.id===t.dataset.uppres)); }
   if(t.dataset.segk){ e.preventDefault(); return segModal(S.kaizens.find(x=>x.id===t.dataset.segk),Number(t.dataset.segn)); }
   if(t.dataset.open){ e.preventDefault(); return openProject(t.dataset.open); }
   if(t.dataset.seg){ return segModal(current(),Number(t.dataset.seg)); }
