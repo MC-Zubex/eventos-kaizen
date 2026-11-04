@@ -231,6 +231,12 @@ legend{font-weight:600;font-size:14px;padding:0 6px;color:var(--info)}
 .fg .c2{grid-column:span 2} .fg .c4{grid-column:1/-1}
 .pwbox{display:flex;gap:14px;align-items:center;justify-content:space-between;background:var(--soft);border:1px dashed var(--zx2);border-radius:8px;padding:12px 14px}
 .pwbox b{color:var(--info)}
+.fsclose{border:2px solid #ea580c;background:#fff7ed}
+.fsclose legend{color:#c2410c;background:var(--surface);border-radius:6px}
+.fsclose legend .pill{background:#ea580c;color:#fff;margin-left:6px;vertical-align:1px}
+.fsclose label{color:#9a3412}
+.fsclose label input{background:var(--surface)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .fsclose{background:#3a1d0c;border-color:#fb923c}:root:not([data-theme="light"]) .fsclose legend,:root:not([data-theme="light"]) .fsclose label{color:#fdba74}}
 label.pwbtn{flex-direction:row;cursor:pointer;color:var(--zx);background:var(--surface);white-space:nowrap;flex:none}
 @media (max-width:560px){.pwbox{flex-direction:column;align-items:flex-start}}
 .fg.ms{grid-template-columns:repeat(5,minmax(0,1fr)) auto;align-items:end;padding-bottom:10px;border-bottom:1px dashed var(--line)}
@@ -1143,7 +1149,7 @@ function projectModal(k){
       <div id="ms_rows" style="display:flex;flex-direction:column;gap:10px"></div>
       <button type="button" class="btn sm" id="ms_add" style="margin-top:10px">Agregar métrico secundario</button>
     </fieldset>
-    <fieldset><legend>Presentación de cierre</legend>
+    <fieldset class="fsclose"><legend>Presentación de cierre <span class="pill">Obligatoria al cerrar el kaizen</span></legend>
       ${k.presentacion?`<div class="hint" style="margin-bottom:8px">Presentación actual: <a href="${esc(blobUrl(k.presentacion.id))}" target="_blank" rel="noopener">${esc(k.presentacion.nombre)}</a>, cargada el ${fd(k.presentacion.fecha)}. Si subes otra, la reemplaza.</div>`:''}
       <label>Presentación del evento en PDF<input type="file" id="f_pdf" accept="application/pdf,.pdf"></label>
       <span class="hint">Obligatoria para registrar el cierre oficial. <b style="color:var(--bad)">El archivo no debe pesar más de 45 MB.</b> Para convertir tu PowerPoint: Archivo &gt; Guardar como &gt; PDF. Si pesa más, reduce las imágenes en PowerPoint con Archivo &gt; Comprimir imágenes.</span>
