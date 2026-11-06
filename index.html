@@ -446,7 +446,11 @@ footer.pie{background:var(--surface2);color:var(--muted);font-size:12.5px;text-a
           const load = () => fetchAll().then(cb).catch(e => onErr && onErr(e));
           load();
           const ch = sb.channel('kaizens-' + Math.random().toString(36).slice(2)).on('postgres_changes', { event: '*', schema: 'public', table: 'kaizens' }, () => later('k', load)).subscribe();
-          return () => sb.removeChannel(ch);
+          const iv = setInterval(() => { if (!document.hidden) later('k', load); }, 60000);
+          const onFocus = () => later('k', load);
+          window.addEventListener('focus', onFocus);
+          window.__kaizenReload = () => later('k', load);
+          return () => { sb.removeChannel(ch); clearInterval(iv); window.removeEventListener('focus', onFocus); };
         }
       };
     }
@@ -557,7 +561,8 @@ function iso(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,
 function today(){ const t=new Date(); return new Date(t.getFullYear(),t.getMonth(),t.getDate()); }
 function addDays(s,n){ const d=pd(s); if(!d) return null; d.setDate(d.getDate()+n); return iso(d); }
 function days(a,b){ const x=pd(a), y=pd(b); if(!x||!y) return null; return Math.round((y-x)/86400000); }
-const money = n => (n===null||n===undefined||n==='') ? '—' : new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0}).format(Number(n));
+const money = n => (n===null||n===undefined||n==='') ? '—' : new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0}).format(Number(n))+' MXN';
+const usd = n => (n===null||n===undefined||n==='') ? '—' : new Intl.NumberFormat('es-MX',{style:'currency',currency:'USD',currencyDisplay:'narrowSymbol',maximumFractionDigits:0}).format(Number(n))+' USD';
 const num = v => (v===''||v===null||v===undefined||isNaN(Number(v))) ? null : Number(v);
 const initials = n => String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 
@@ -588,7 +593,7 @@ function fmtMej(m,c){ const p=Math.abs(Math.round(c.mejora*100)); if(c.mantener)
 function writable(){ return !!S.db && S.canWrite!==false && !S.readOnly; }
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),3200); }
 async function safeWrite(fn, okMsg){
-  try{ await fn(); if(okMsg) toast(okMsg); return true; }
+  try{ await fn(); if(window.__kaizenReload) window.__kaizenReload(); if(okMsg) toast(okMsg); return true; }
   catch(e){
     if(e && e.code==='invalid_argument'){ S.readOnly=true; render(); toast('No tienes permiso para editar. Pide acceso de Colaborador a quien comparte la aplicación.'); }
     else if(e && e.code==='quota_exceeded'){ toast('Se llenó el espacio de la base de datos. Elimina registros que ya no necesites.'); }
@@ -698,7 +703,7 @@ function renderResults(){
     <div class="kpi"><div class="v ok">${cerr.length}</div><div class="l">Cerrados</div><div class="s">${pct(aTiempo,cerr.length)} cerró a tiempo</div></div>
     <div class="kpi"><div class="v">${proc.length}</div><div class="l">En proceso a tiempo</div><div class="s">de ${activos} activos</div></div>
     <div class="kpi"><div class="v ${atr.length?'bad':'ok'}">${atr.length}</div><div class="l">Atrasados</div><div class="s">${pct(atr.length,activos)} de los activos</div></div>
-    <div class="kpi"><div class="v ${ahV?'ok':''}">${money(ahV)}</div><div class="l">Ahorro validado</div><div class="s">Estimado ${money(ahE)}</div></div>
+    <div class="kpi"><div class="v ${ahV?'ok':''}">${usd(ahV)}</div><div class="l">Ahorro validado</div><div class="s">Estimado ${money(ahE)}</div></div>
     <div class="kpi"><div class="v ${segV?'bad':'ok'}">${segV}</div><div class="l">Revisiones de sostenimiento vencidas</div><div class="s">30, 60 y 90 días</div></div>
   </section>`;
   const chartsH = `
@@ -877,7 +882,7 @@ function viewProyecto(){
       </section>
       <section class="grid2" style="margin:0;grid-template-columns:1fr 1fr">
         <div class="panel"><h3 style="font-size:14px">Ahorro estimado</h3><div class="big" style="margin-top:4px">${money(k.ahorroEstimado)}</div></div>
-        <div class="panel"><h3 style="font-size:14px">Ahorro validado por Costos</h3><div class="big ${num(k.ahorroValidado)?'ok':''}" style="margin-top:4px">${money(k.ahorroValidado)}</div></div>
+        <div class="panel"><h3 style="font-size:14px">Ahorro validado por Costos</h3><div class="big ${num(k.ahorroValidado)?'ok':''}" style="margin-top:4px">${usd(k.ahorroValidado)}</div></div>
       </section>
       <section class="panel"><div class="ptitle"><h3>Equipo kaizen</h3></div>
         ${eq.length?`<div class="team">${eq.map(p=>`<div><span class="av">${esc(initials(p.nombre))}</span><span>${esc(p.nombre)}<small>${esc(p.rol||'Integrante')}</small></span></div>`).join('')}</div>`:`<div class="empty">Sin integrantes registrados.</div>`}
@@ -920,7 +925,7 @@ function viewProyecto(){
 document.addEventListener('click', e=>{
   const t=e.target.closest('[data-hoja],[data-open],[data-act],[data-tab],[data-paso],[data-editav],[data-editpend],[data-seg],[data-segk],[data-uppres],[data-zoom]');
   if(!t) return;
-  if(t.dataset.hoja){ S.hoja=t.dataset.hoja; try{location.hash=S.hoja;}catch(e){} if(S.view==='proyecto') closeProject(); else render(); return; }
+  if(t.dataset.hoja){ if(window.__kaizenReload) window.__kaizenReload(); S.hoja=t.dataset.hoja; try{location.hash=S.hoja;}catch(e){} if(S.view==='proyecto') closeProject(); else render(); return; }
   if(t.dataset.open) return openProject(t.dataset.open);
   if(t.dataset.tab){ S.tab=t.dataset.tab; return render(); }
   if(t.dataset.paso){ const k=current(); const p=Number(t.dataset.paso); if(k && p!==Number(k.pasoActual)) safeWrite(()=>S.db.doc('kaizens/'+k.id).update({pasoActual:p,actualizado:new Date().toISOString()}), `Paso actualizado: ${STEPS[p-1]}`); return; }
@@ -1009,7 +1014,7 @@ async function exportExcel(btn){
       'Descripción':k.descripcion||'', 'Propósito':k.proposito||'', 'Beneficios':k.beneficios||'', 'Impacto al cliente':k.impactoCliente||'',
       'Enfoque de la mejora':ENFOQUES.filter(([v])=>(k.enfoque||[]).includes(v)).map(x=>x[1]).join(', '),
       'Métrico primario':m.nombre||'', 'Unidad':m.unidad||'', 'Sentido':m.nombre?(m.sentido==='aumentar'?'Aumentar':'Reducir'):'', 'Línea base':m.base??'', 'Meta':m.meta??'', 'Resultado':m.resultado??'', '% de mejora':mej(m),
-      'Ahorro estimado (MXN)':k.ahorroEstimado??'', 'Ahorro validado (MXN)':k.ahorroValidado??'',
+      'Ahorro estimado (MXN)':k.ahorroEstimado??'', 'Ahorro validado (USD)':k.ahorroValidado??'',
       'Equipo':(k.equipo||[]).map(p=>p.rol?`${p.nombre} (${p.rol})`:p.nombre).join('; '),
       'Estado del seguimiento':st==='Cerrado'?segEstado(k)[0]:'',
       'Mes 1 valor':sg[30]?.valor??'', 'Mes 1':ok(sg[30]?.sostenido), 'Mes 2 valor':sg[60]?.valor??'', 'Mes 2':ok(sg[60]?.sostenido), 'Mes 3 valor':sg[90]?.valor??'', 'Mes 3':ok(sg[90]?.sostenido),
@@ -1166,7 +1171,7 @@ function projectModal(k){
       <label>Resultado<input type="number" step="any" id="m_res" value="${esc(m.resultado)}"></label>
       <span></span>
       <label class="c2">Ahorro estimado (MXN)<input type="number" step="any" id="f_ahE" value="${esc(k.ahorroEstimado)}"></label>
-      <label class="c2">Ahorro validado por Costos (MXN)<input type="number" step="any" id="f_ahV" value="${esc(k.ahorroValidado)}"></label>
+      <label class="c2">Ahorro validado por Costos (USD)<input type="number" step="any" id="f_ahV" value="${esc(k.ahorroValidado)}"></label>
     </div></fieldset>
     <fieldset><legend>Métricos secundarios</legend>
       <div id="ms_rows" style="display:flex;flex-direction:column;gap:10px"></div>
@@ -1394,7 +1399,7 @@ function buildDeck(k){
     const b=num(m.base), r=num(m.resultado), mx=Math.max(b,r)||1;
     out.push(slide('Validación del métrico primario',`<div class="cols"><div class="vbars"><div>${b} ${esc(m.unidad||'')}<i style="height:${b/mx*90}%"></i><span style="font-weight:400">Antes</span></div><div>${r} ${esc(m.unidad||'')}<i style="height:${r/mx*90}%"></i><span style="font-weight:400">Después</span></div></div>
       <div style="display:flex;flex-direction:column;justify-content:center;gap:1em"><p style="font-size:2.6em;font-weight:700;color:#0D18A8;line-height:1">${fmtMej(m,cu)}</p><p class="lead">${esc(m.nombre)}${cu.meta!==null?`, contra meta de ${Math.round(cu.meta*100)}%`:''}</p>
-      ${num(k.ahorroValidado)||num(k.ahorroEstimado)?`<p><b>Ahorro:</b> ${num(k.ahorroValidado)?`${money(k.ahorroValidado)} validado`:`${money(k.ahorroEstimado)} estimado`}</p>`:''}</div></div>`,'C'));
+      ${num(k.ahorroValidado)||num(k.ahorroEstimado)?`<p><b>Ahorro:</b> ${num(k.ahorroValidado)?`${usd(k.ahorroValidado)} validado`:`${money(k.ahorroEstimado)} estimado`}</p>`:''}</div></div>`,'C'));
   }
   const msv=(k.metricosSec||[]).filter(x=>num(x.resultado)!==null);
   if(msv.length) out.push(slide('Validación de métricos secundarios',`<table><thead><tr><th>Métrico</th><th>Línea base</th><th>Meta</th><th>Resultado</th><th>Logro</th></tr></thead><tbody>${msv.map(x=>{const c=cumplimiento(x); return `<tr><td>${esc(x.nombre)}</td><td>${esc(x.base??'—')} ${esc(x.unidad||'')}</td><td>${esc(x.meta??'—')} ${esc(x.unidad||'')}</td><td>${esc(x.resultado)} ${esc(x.unidad||'')}</td><td><b>${c?fmtMej(x,c):'—'}</b></td></tr>`;}).join('')}</tbody></table>`,'C'));
