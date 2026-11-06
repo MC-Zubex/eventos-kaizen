@@ -703,7 +703,7 @@ function renderResults(){
     <div class="kpi"><div class="v ok">${cerr.length}</div><div class="l">Cerrados</div><div class="s">${pct(aTiempo,cerr.length)} cerró a tiempo</div></div>
     <div class="kpi"><div class="v">${proc.length}</div><div class="l">En proceso a tiempo</div><div class="s">de ${activos} activos</div></div>
     <div class="kpi"><div class="v ${atr.length?'bad':'ok'}">${atr.length}</div><div class="l">Atrasados</div><div class="s">${pct(atr.length,activos)} de los activos</div></div>
-    <div class="kpi"><div class="v ${ahV?'ok':''}">${usd(ahV)}</div><div class="l">Ahorro validado</div><div class="s">Estimado ${money(ahE)}</div></div>
+    <div class="kpi"><div class="v ${ahV?'ok':''}">${usd(ahV)}</div><div class="l">Ahorro validado (USD)</div><div class="s">Estimado ${money(ahE)}</div></div>
     <div class="kpi"><div class="v ${segV?'bad':'ok'}">${segV}</div><div class="l">Revisiones de sostenimiento vencidas</div><div class="s">30, 60 y 90 días</div></div>
   </section>`;
   const chartsH = `
@@ -881,8 +881,8 @@ function viewProyecto(){
         ${(k.metricosSec||[]).length? `<div style="overflow-x:auto"><table class="metric"><thead><tr><th>Métrico</th><th>Línea base</th><th>Meta</th><th>Resultado</th><th>Logro</th></tr></thead><tbody>${k.metricosSec.map(x=>{const c=cumplimiento(x); const u=esc(x.unidad||''); const val=y=>(y===null||y===undefined||y==='')?'—':`${esc(y)} ${u}`; return `<tr><td>${esc(x.nombre)}</td><td>${val(x.base)}</td><td>${val(x.meta)}</td><td>${val(x.resultado)}</td><td class="nowrap" style="font-weight:600;color:${c?(c.logrado===false?'var(--bad)':'var(--ok)'):'var(--muted)'}">${c?fmtMej(x,c):'—'}</td></tr>`;}).join('')}</tbody></table></div>` : `<div class="empty">Sin métricos secundarios. ${w?'Agrégalos en Editar carátula.':''}</div>`}
       </section>
       <section class="grid2" style="margin:0;grid-template-columns:1fr 1fr">
-        <div class="panel"><h3 style="font-size:14px">Ahorro estimado</h3><div class="big" style="margin-top:4px">${money(k.ahorroEstimado)}</div></div>
-        <div class="panel"><h3 style="font-size:14px">Ahorro validado por Costos</h3><div class="big ${num(k.ahorroValidado)?'ok':''}" style="margin-top:4px">${usd(k.ahorroValidado)}</div></div>
+        <div class="panel"><h3 style="font-size:14px">Ahorro estimado (MXN)</h3><div class="big" style="margin-top:4px">${money(k.ahorroEstimado)}</div></div>
+        <div class="panel"><h3 style="font-size:14px">Ahorro validado por Costos (USD)</h3><div class="big ${num(k.ahorroValidado)?'ok':''}" style="margin-top:4px">${usd(k.ahorroValidado)}</div></div>
       </section>
       <section class="panel"><div class="ptitle"><h3>Equipo kaizen</h3></div>
         ${eq.length?`<div class="team">${eq.map(p=>`<div><span class="av">${esc(initials(p.nombre))}</span><span>${esc(p.nombre)}<small>${esc(p.rol||'Integrante')}</small></span></div>`).join('')}</div>`:`<div class="empty">Sin integrantes registrados.</div>`}
