@@ -880,6 +880,7 @@ function viewProyecto(){
       <section class="panel"><div class="ptitle"><h3>Métricos secundarios</h3></div>
         ${(k.metricosSec||[]).length? `<div style="overflow-x:auto"><table class="metric"><thead><tr><th>Métrico</th><th>Línea base</th><th>Meta</th><th>Resultado</th><th>Logro</th></tr></thead><tbody>${k.metricosSec.map(x=>{const c=cumplimiento(x); const u=esc(x.unidad||''); const val=y=>(y===null||y===undefined||y==='')?'—':`${esc(y)} ${u}`; return `<tr><td>${esc(x.nombre)}</td><td>${val(x.base)}</td><td>${val(x.meta)}</td><td>${val(x.resultado)}</td><td class="nowrap" style="font-weight:600;color:${c?(c.logrado===false?'var(--bad)':'var(--ok)'):'var(--muted)'}">${c?fmtMej(x,c):'—'}</td></tr>`;}).join('')}</tbody></table></div>` : `<div class="empty">Sin métricos secundarios. ${w?'Agrégalos en Editar carátula.':''}</div>`}
       </section>
+      ${k.obsMetricos?`<section class="panel" style="border-left:4px solid var(--zx2)"><div class="ptitle"><h3>Observaciones del resultado al cierre</h3></div><div class="txt" style="font-size:14px">${esc(k.obsMetricos)}</div></section>`:''}
       <section class="grid2" style="margin:0;grid-template-columns:1fr 1fr">
         <div class="panel"><h3 style="font-size:14px">Ahorro estimado (MXN)</h3><div class="big" style="margin-top:4px">${money(k.ahorroEstimado)}</div></div>
         <div class="panel"><h3 style="font-size:14px">Ahorro validado por Costos (USD)</h3><div class="big ${num(k.ahorroValidado)?'ok':''}" style="margin-top:4px">${usd(k.ahorroValidado)}</div></div>
@@ -1013,7 +1014,7 @@ async function exportExcel(btn){
       'Paso actual':`${Number(k.pasoActual)||1}. ${STEPS[(Number(k.pasoActual)||1)-1]}`, 'Avance %':Number(k.avance)||0, 'Causa de atraso':k.causaAtraso||'', 'Observaciones':k.observaciones||'',
       'Descripción':k.descripcion||'', 'Propósito':k.proposito||'', 'Beneficios':k.beneficios||'', 'Impacto al cliente':k.impactoCliente||'',
       'Enfoque de la mejora':ENFOQUES.filter(([v])=>(k.enfoque||[]).includes(v)).map(x=>x[1]).join(', '),
-      'Métrico primario':m.nombre||'', 'Unidad':m.unidad||'', 'Sentido':m.nombre?(m.sentido==='aumentar'?'Aumentar':'Reducir'):'', 'Línea base':m.base??'', 'Meta':m.meta??'', 'Resultado':m.resultado??'', '% de mejora':mej(m),
+      'Métrico primario':m.nombre||'', 'Unidad':m.unidad||'', 'Sentido':m.nombre?(m.sentido==='aumentar'?'Aumentar':'Reducir'):'', 'Línea base':m.base??'', 'Meta':m.meta??'', 'Resultado':m.resultado??'', '% de mejora':mej(m), 'Observaciones del resultado':k.obsMetricos||'',
       'Ahorro estimado (MXN)':k.ahorroEstimado??'', 'Ahorro validado (USD)':k.ahorroValidado??'',
       'Equipo':(k.equipo||[]).map(p=>p.rol?`${p.nombre} (${p.rol})`:p.nombre).join('; '),
       'Estado del seguimiento':st==='Cerrado'?segEstado(k)[0]:'',
@@ -1172,6 +1173,7 @@ function projectModal(k){
       <span></span>
       <label class="c2">Ahorro estimado (MXN)<input type="number" step="any" id="f_ahE" value="${esc(k.ahorroEstimado)}"></label>
       <label class="c2">Ahorro validado por Costos (USD)<input type="number" step="any" id="f_ahV" value="${esc(k.ahorroValidado)}"></label>
+      <label class="c4">Observaciones del resultado al cierre<textarea id="f_obsm" placeholder="Ej. Se ajustó la meta de 75 s a 60 s porque cambió el proceso de etiquetado; el métrico secundario se midió en otra unidad…">${esc(k.obsMetricos)}</textarea><span class="hint">Explica cualquier cambio en los métricos, metas o forma de medir respecto al prework.</span></label>
     </div></fieldset>
     <fieldset><legend>Métricos secundarios</legend>
       <div id="ms_rows" style="display:flex;flex-direction:column;gap:10px"></div>
@@ -1261,7 +1263,7 @@ function projectModal(k){
       metrico:{nombre:v('m_nom').trim(),unidad:v('m_uni').trim(),sentido:v('m_sen'),base:num(v('m_base')),meta:num(v('m_meta')),resultado:num(v('m_res'))},
       prework: pwFile || k.prework || null, presentacion,
       metricosSec:[...modal.querySelectorAll('.ms')].map(r=>({nombre:r.querySelector('.ms_nom').value.trim(),unidad:r.querySelector('.ms_uni').value.trim(),sentido:r.querySelector('.ms_sen').value,base:num(r.querySelector('.ms_base').value),meta:num(r.querySelector('.ms_meta').value),resultado:num(r.querySelector('.ms_res').value)})).filter(x=>x.nombre),
-      ahorroEstimado:num(v('f_ahE')), ahorroValidado:num(v('f_ahV')), equipo,
+      ahorroEstimado:num(v('f_ahE')), ahorroValidado:num(v('f_ahV')), obsMetricos:v('f_obsm').trim(), equipo,
       actualizado:new Date().toISOString(), actualizadoPor:S.me||null
     };
     const btn=modal.querySelector('#f_save'); btn.disabled=true;
