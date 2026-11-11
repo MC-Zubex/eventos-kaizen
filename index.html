@@ -91,6 +91,12 @@ body.wide main{padding:16px 24px}
 /* gráficas */
 .charts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
 .causas{display:grid;grid-template-columns:1fr 1.5fr;gap:20px}
+.dashrow{display:grid;gap:12px;margin-bottom:12px}
+.dashrow.r1{grid-template-columns:1fr 1.6fr}
+.dashrow.r2{grid-template-columns:1fr 1fr}
+.atrwrap{overflow:auto;max-height:420px}
+.atrwrap th{position:sticky;top:0}
+@media (max-width:900px){.dashrow.r1,.dashrow.r2{grid-template-columns:1fr}}
 .mhd{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap}
 .mhd h2{font-size:19px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
@@ -338,6 +344,9 @@ footer.pie{background:var(--surface2);color:var(--muted);font-size:12.5px;text-a
   .kpi{padding:8px 10px}.kpi .v{font-size:22px}
   .charts{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
   .causas{grid-template-columns:1fr 1.5fr}
+  .dashrow.r1{grid-template-columns:1fr 1.6fr}.dashrow.r2{grid-template-columns:1fr 1fr}
+  .atrwrap{max-height:none;overflow:visible}
+  .atrwrap th{position:static}
   .panel,.kpi{break-inside:avoid}
   .tablewrap{max-height:none!important;overflow:visible}
   .tablewrap th{position:static}
@@ -727,22 +736,18 @@ function renderResults(){
     <div class="kpi"><div class="v ${ahV?'ok':''}">${usd(ahV)}</div><div class="l">Ahorro validado (USD)</div><div class="s">Estimado ${money(ahE)}</div></div>
     <div class="kpi"><div class="v ${segV?'bad':'ok'}">${segV}</div><div class="l">Revisiones de sostenimiento vencidas</div><div class="s">30, 60 y 90 días</div></div>
   </section>`;
-  const chartsH = `
-  <section class="charts">
-    <div class="panel"><h3>En qué paso está cada kaizen</h3><div class="sub">Sin cancelados</div>
-      <div class="bars">${porPaso.map((n,i)=>`<div class="bar"><span class="lb">${i+1}. ${STEPS[i]}</span><span class="tr"><i style="width:${n*100/maxP}%;background:var(--zx)"></i></span><span class="n">${n}</span></div>`).join('')}</div></div>
-    <div class="panel"><h3>Estatus por área</h3><div class="sub">Número de kaizens</div>
+  const pasoP = `<div class="panel"><h3>En qué paso está cada kaizen</h3><div class="sub">Sin cancelados</div>
+      <div class="bars">${porPaso.map((n,i)=>`<div class="bar"><span class="lb">${i+1}. ${STEPS[i]}</span><span class="tr"><i style="width:${n*100/maxP}%;background:var(--zx)"></i></span><span class="n">${n}</span></div>`).join('')}</div></div>`;
+  const areaP = `<div class="panel"><h3>Estatus por área</h3><div class="sub">Número de kaizens</div>
       <div class="bars">${areasArr.map(([a,o])=>`<div class="bar"><span class="lb">${esc(a)}</span><span class="tr" style="width:${o.t*100/maxA}%">${stOrder.map(s=>o[s]?`<i style="flex:${o[s]};background:${ST_COLORS[s]}" title="${s}: ${o[s]}"></i>`:'').join('')}</span><span class="n">${o.t}</span></div>`).join('')}</div>
-      <div class="legend">${stOrder.map(s=>`<span style="--c:${ST_COLORS[s]}">${s}</span>`).join('')}</div></div>
-  </section>`;
+      <div class="legend">${stOrder.map(s=>`<span style="--c:${ST_COLORS[s]}">${s}</span>`).join('')}</div></div>`;
   const atrS=[...atr].sort((a,b)=>(days(b.fin,iso(today()))||0)-(days(a.fin,iso(today()))||0));
-  const causasH = `
-  <section class="panel"><h3>Por qué se atrasan</h3><div class="sub">${atr.length} kaizens atrasados. Causa registrada, con % acumulado, y detalle de cada proyecto</div>
-    <div class="causas">
-      <div>${causas.length? `<div class="bars">${causas.map(([c,n])=>{acum+=n; return `<div class="bar"><span class="lb" title="${esc(c)}">${esc(c)}</span><span class="tr"><i style="width:${n*100/maxC}%;background:${c==='Sin registrar'?'var(--gray)':'var(--bad)'}"></i></span><span class="n">${n}</span></div><div class="hint" style="margin:-4px 0 2px 126px">${Math.round(acum*100/atr.length)}% acumulado</div>`;}).join('')}</div>` : `<div class="empty">No hay kaizens atrasados con este filtro.</div>`}</div>
-      ${atr.length?`<div style="overflow-x:auto"><table class="ptable"><thead><tr><th>Proyecto</th><th>Días de atraso</th><th>Causa</th><th>Observaciones</th></tr></thead><tbody>${atrS.map(k=>`<tr data-open="${esc(k.id)}" tabindex="0" style="cursor:pointer"><td><b style="font-weight:500">${esc(k.nombre)}</b><div class="hint">${esc(k.area)}, ${esc(k.lider)}</div></td><td class="nowrap" style="color:var(--bad);font-weight:600">${days(k.fin,iso(today()))}</td><td>${esc(k.causaAtraso||'Sin registrar')}</td><td class="hint">${esc(k.observaciones||'')}</td></tr>`).join('')}</tbody></table></div>`:''}
-    </div>
-  </section>`;
+  const atrP = `<div class="panel"><h3>Kaizens atrasados</h3><div class="sub">${atr.length} ${atr.length===1?'kaizen':'kaizens'}, del más atrasado al menos atrasado. Da clic en uno para abrirlo.</div>
+      ${atr.length?`<div class="atrwrap"><table class="ptable"><thead><tr><th>Proyecto</th><th>Días de atraso</th><th>Causa</th><th>Observaciones</th></tr></thead><tbody>${atrS.map(k=>`<tr data-open="${esc(k.id)}" tabindex="0" style="cursor:pointer"><td><b style="font-weight:500">${esc(k.nombre)}</b><div class="hint">${esc(k.area)}, ${esc(k.lider)}</div></td><td class="nowrap" style="color:var(--bad);font-weight:600">${days(k.fin,iso(today()))}</td><td>${esc(k.causaAtraso||'Sin registrar')}</td><td class="hint">${esc(k.observaciones||'')}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">No hay kaizens atrasados con este filtro.</div>`}</div>`;
+  const paretoP = `<div class="panel"><h3>Por qué se atrasan</h3><div class="sub">Causa registrada en kaizens atrasados, con % acumulado</div>
+      ${causas.length? `<div class="bars">${causas.map(([c,n])=>{acum+=n; return `<div class="bar"><span class="lb" title="${esc(c)}">${esc(c)}</span><span class="tr"><i style="width:${n*100/maxC}%;background:${c==='Sin registrar'?'var(--gray)':'var(--bad)'}"></i></span><span class="n">${n}</span></div><div class="hint" style="margin:-4px 0 2px 126px">${Math.round(acum*100/atr.length)}% acumulado</div>`;}).join('')}</div>` : `<div class="empty">No hay kaizens atrasados con este filtro.</div>`}</div>`;
+  const chartsH = `<section class="dashrow r1">${areaP}${atrP}</section>`;
+  const causasH = `<section class="dashrow r2">${paretoP}${pasoP}</section>`;
   const headH = `<div class="mhd"><h2>Hoja maestra de kaizens</h2><div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><span class="muted">${ks.length} de ${S.kaizens.length} kaizens. Abre uno para ver su carátula y avances.</span>${S.downloads?'<button class="btn sm" data-act="export">Exportar a Excel</button>':''}${writable()?'<button class="btn sm" data-act="importmig">Importar datos de Claude</button>':''}</div></div>`;
   const tableH = `
   <div class="tablewrap"><table>
