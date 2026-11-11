@@ -322,6 +322,27 @@ footer.pie{background:var(--surface2);color:var(--muted);font-size:12.5px;text-a
   .apptitle b{font-size:15px}
   .dhead h1{font-size:22px}
 }
+.printhead{display:none}
+@media print{
+  @page{size:landscape;margin:10mm}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  :root{--bg:#fff;--surface:#fff;--surface2:#f1f5f9;--ink:#0f172a;--muted:#475569;--line:#e2e8f0;padding:0}
+  body{background:#fff;font-size:12px}
+  body::before,header.top,.filters,.noprint,.toast,#who,footer.pie,.method{display:none!important}
+  main{max-width:none;padding:0}
+  .printhead{display:flex;align-items:center;gap:14px;border-bottom:3px solid #0D18A8;padding-bottom:8px;margin-bottom:10px}
+  .printhead .wordmark{color:#0D18A8;font-size:26px}
+  .printhead b{display:block;font-size:16px}.printhead span{font-size:11px;color:#475569}
+  .mhd h2{display:none}
+  .kpis{grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:10px}
+  .kpi{padding:8px 10px}.kpi .v{font-size:22px}
+  .charts{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+  .causas{grid-template-columns:1fr 1.5fr}
+  .panel,.kpi{break-inside:avoid}
+  .tablewrap{max-height:none!important;overflow:visible}
+  .tablewrap th{position:static}
+  tbody tr{break-inside:avoid}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
 .who{display:flex;align-items:center;gap:10px;font-size:13px;color:#fff}
@@ -736,7 +757,10 @@ function renderResults(){
       <td>${pill(s)}${sp?`<div class="hint" style="color:var(--bad);margin-top:3px">${sp} revisión vencida</div>`:''}</td></tr>`;}).join('') : `<tr><td colspan="12" class="empty">Ningún kaizen coincide con los filtros.</td></tr>`}</tbody>
   </table></div>`;
   if(S.hoja==='seguimiento'){ el.innerHTML = segSheet(ks); return; }
-  el.innerHTML = S.hoja==='maestra' ? headH + tableH : kpisH + chartsH + causasH;
+  const filtTxt=[S.f.area&&`Área: ${S.f.area}`,S.f.coach&&`Coach: ${S.f.coach}`,S.f.estatus&&`Estatus: ${S.f.estatus}`,S.f.anio&&`Año: ${S.f.anio}`,S.f.q&&`Búsqueda: “${S.f.q}”`].filter(Boolean).join(' · ')||'Todos los kaizens';
+  const dashH = `<div class="printhead"><span class="wordmark">zubex</span><div><b>Dashboard de Eventos Kaizen</b><span>Mejora Continua, Zubex Industrial. Generado el ${fd(iso(today()))}.</span></div></div>
+  <div class="mhd"><h2>Dashboard de Eventos Kaizen</h2><div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><span class="muted">${esc(filtTxt)}</span><button class="btn sm pri noprint" data-act="print">Imprimir dashboard</button></div></div>`;
+  el.innerHTML = S.hoja==='maestra' ? headH + tableH : dashH + kpisH + chartsH + causasH;
 }
 
 function segEstado(k){
@@ -943,6 +967,7 @@ document.addEventListener('click', e=>{
   if(a==='addav') return avanceModal(current(),S.tab,null);
   if(a==='addpend') return pendModal(current(),null);
   if(a==='deck') return openPres(current());
+  if(a==='print') return window.print();
   if(a==='export') return exportExcel(t);
   if(a==='importmig') return importMigracion(t);
 });
