@@ -344,9 +344,36 @@ footer.pie{background:var(--surface2);color:var(--muted);font-size:12.5px;text-a
   .kpi{padding:8px 10px}.kpi .v{font-size:22px}
   .charts{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
   .causas{grid-template-columns:1fr 1.5fr}
-  .dashrow.r1{grid-template-columns:1fr 1.6fr}.dashrow.r2{grid-template-columns:1fr 1fr}
   .atrwrap{max-height:none;overflow:visible}
   .atrwrap th{position:static}
+  .dashgrid{display:grid;grid-template-columns:34% 1fr;grid-template-areas:"area atr" "pareto atr" "paso atr";gap:6px;align-items:start}
+  .dashgrid .dashrow{display:contents}
+  .p-area{grid-area:area}.p-atr{grid-area:atr}.p-pareto{grid-area:pareto}.p-paso{grid-area:paso}
+  .dashgrid .bar{font-size:9px;grid-template-columns:96px 1fr 20px;gap:5px}
+  .dashgrid .bars{gap:2px}
+  .dashgrid .bar .tr{height:8px}
+  .dashgrid .p-pareto .hint{font-size:8px;margin:-2px 0 1px 101px!important}
+  .dashgrid .legend{font-size:8.5px;margin-top:4px;gap:8px}
+  .dashgrid .panel{padding:8px 10px}
+  .dashgrid .ptable{font-size:9.5px}
+  .dashgrid .ptable th,.dashgrid .ptable td{padding:3px 5px}
+  .dashgrid .ptable td .hint{font-size:9px}
+  .dashgrid .panel{break-inside:auto}
+  .dashgrid .ptable td{line-height:1.25}
+  .dashgrid .ptable td>div.hint{display:none}
+  .dashgrid .ptable td.hint,.dashgrid .ptable td b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dashgrid .ptable td.hint{max-width:230px;font-size:9px}
+  .dashgrid .ptable th,.dashgrid .ptable td{padding:2px 5px!important;line-height:1.15}
+  .dashgrid .ptable th{font-size:9px}
+  .dashgrid .ptable td b{max-width:210px}
+  .dashgrid .ptable td:nth-child(3){white-space:nowrap}
+  .dashrow.r1 tbody tr{break-inside:avoid}
+  .dashgrid .bars{gap:4px}
+  .dashgrid .bar{font-size:10px;grid-template-columns:100px 1fr 24px}
+  .dashgrid .bar .tr{height:10px}
+  .dashgrid h3{font-size:12px}.dashgrid .sub{font-size:9px;margin-bottom:4px}
+  .printhead{padding-bottom:4px;margin-bottom:6px}
+  .kpis{margin-bottom:6px}.kpi{padding:6px 8px}.kpi .v{font-size:20px}.kpi .l{font-size:11px}.kpi .s{font-size:9.5px}
   .panel,.kpi{break-inside:avoid}
   .tablewrap{max-height:none!important;overflow:visible}
   .tablewrap th{position:static}
@@ -736,15 +763,15 @@ function renderResults(){
     <div class="kpi"><div class="v ${ahV?'ok':''}">${usd(ahV)}</div><div class="l">Ahorro validado (USD)</div><div class="s">Estimado ${money(ahE)}</div></div>
     <div class="kpi"><div class="v ${segV?'bad':'ok'}">${segV}</div><div class="l">Revisiones de sostenimiento vencidas</div><div class="s">30, 60 y 90 días</div></div>
   </section>`;
-  const pasoP = `<div class="panel"><h3>En qué paso está cada kaizen</h3><div class="sub">Sin cancelados</div>
+  const pasoP = `<div class="panel p-paso"><h3>En qué paso está cada kaizen</h3><div class="sub">Sin cancelados</div>
       <div class="bars">${porPaso.map((n,i)=>`<div class="bar"><span class="lb">${i+1}. ${STEPS[i]}</span><span class="tr"><i style="width:${n*100/maxP}%;background:var(--zx)"></i></span><span class="n">${n}</span></div>`).join('')}</div></div>`;
-  const areaP = `<div class="panel"><h3>Estatus por área</h3><div class="sub">Número de kaizens</div>
+  const areaP = `<div class="panel p-area"><h3>Estatus por área</h3><div class="sub">Número de kaizens</div>
       <div class="bars">${areasArr.map(([a,o])=>`<div class="bar"><span class="lb">${esc(a)}</span><span class="tr" style="width:${o.t*100/maxA}%">${stOrder.map(s=>o[s]?`<i style="flex:${o[s]};background:${ST_COLORS[s]}" title="${s}: ${o[s]}"></i>`:'').join('')}</span><span class="n">${o.t}</span></div>`).join('')}</div>
       <div class="legend">${stOrder.map(s=>`<span style="--c:${ST_COLORS[s]}">${s}</span>`).join('')}</div></div>`;
   const atrS=[...atr].sort((a,b)=>(days(b.fin,iso(today()))||0)-(days(a.fin,iso(today()))||0));
-  const atrP = `<div class="panel"><h3>Kaizens atrasados</h3><div class="sub">${atr.length} ${atr.length===1?'kaizen':'kaizens'}, del más atrasado al menos atrasado. Da clic en uno para abrirlo.</div>
+  const atrP = `<div class="panel p-atr"><h3>Kaizens atrasados</h3><div class="sub">${atr.length} ${atr.length===1?'kaizen':'kaizens'}, del más atrasado al menos atrasado. Da clic en uno para abrirlo.</div>
       ${atr.length?`<div class="atrwrap"><table class="ptable"><thead><tr><th>Proyecto</th><th>Días de atraso</th><th>Causa</th><th>Observaciones</th></tr></thead><tbody>${atrS.map(k=>`<tr data-open="${esc(k.id)}" tabindex="0" style="cursor:pointer"><td><b style="font-weight:500">${esc(k.nombre)}</b><div class="hint">${esc(k.area)}, ${esc(k.lider)}</div></td><td class="nowrap" style="color:var(--bad);font-weight:600">${days(k.fin,iso(today()))}</td><td>${esc(k.causaAtraso||'Sin registrar')}</td><td class="hint">${esc(k.observaciones||'')}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">No hay kaizens atrasados con este filtro.</div>`}</div>`;
-  const paretoP = `<div class="panel"><h3>Por qué se atrasan</h3><div class="sub">Causa registrada en kaizens atrasados, con % acumulado</div>
+  const paretoP = `<div class="panel p-pareto"><h3>Por qué se atrasan</h3><div class="sub">Causa registrada en kaizens atrasados, con % acumulado</div>
       ${causas.length? `<div class="bars">${causas.map(([c,n])=>{acum+=n; return `<div class="bar"><span class="lb" title="${esc(c)}">${esc(c)}</span><span class="tr"><i style="width:${n*100/maxC}%;background:${c==='Sin registrar'?'var(--gray)':'var(--bad)'}"></i></span><span class="n">${n}</span></div><div class="hint" style="margin:-4px 0 2px 126px">${Math.round(acum*100/atr.length)}% acumulado</div>`;}).join('')}</div>` : `<div class="empty">No hay kaizens atrasados con este filtro.</div>`}</div>`;
   const chartsH = `<section class="dashrow r1">${areaP}${atrP}</section>`;
   const causasH = `<section class="dashrow r2">${paretoP}${pasoP}</section>`;
@@ -765,7 +792,7 @@ function renderResults(){
   const filtTxt=[S.f.area&&`Área: ${S.f.area}`,S.f.coach&&`Coach: ${S.f.coach}`,S.f.estatus&&`Estatus: ${S.f.estatus}`,S.f.anio&&`Año: ${S.f.anio}`,S.f.q&&`Búsqueda: “${S.f.q}”`].filter(Boolean).join(' · ')||'Todos los kaizens';
   const dashH = `<div class="printhead"><span class="wordmark">zubex</span><div><b>Dashboard de Eventos Kaizen</b><span>Mejora Continua, Zubex Industrial. Generado el ${fd(iso(today()))}.</span></div></div>
   <div class="mhd"><h2>Dashboard de Eventos Kaizen</h2><div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><span class="muted">${esc(filtTxt)}</span><button class="btn sm pri noprint" data-act="print">Imprimir dashboard</button></div></div>`;
-  el.innerHTML = S.hoja==='maestra' ? headH + tableH : dashH + kpisH + chartsH + causasH;
+  el.innerHTML = S.hoja==='maestra' ? headH + tableH : dashH + kpisH + '<div class="dashgrid">' + chartsH + causasH + '</div>';
 }
 
 function segEstado(k){
