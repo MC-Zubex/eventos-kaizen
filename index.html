@@ -565,6 +565,7 @@ footer.pie{background:var(--surface2);color:var(--muted);font-size:12.5px;text-a
 <script>
 /* ========= Configuración ========= */
 const STEPS = ['Prework','Autorización','Apertura','Ejecución','Revisiones','Presentación','Cierre oficial','Seguimiento'];
+const STEP_AVANCE = [5,10,20,40,70,85,100,100];
 const STEP_HELP = [
   'El equipo llena el prework: problema, métrico, línea base, meta y equipo.',
   'Se recaban las firmas de los directores para autorizar el kaizen.',
@@ -899,7 +900,7 @@ function viewProyecto(){
     <section class="panel"><div class="ptitle"><h3>Carátula</h3><span class="muted" style="font-size:13px">Avance ${Number(k.avance)||0}%</span></div>
       <dl class="dl">
         <dt>Objetivo</dt><dd>${esc(k.detalle||'—')}</dd>
-        <dt>Prework</dt><dd>${k.prework?`${esc(k.prework.archivo)}, cargado el ${fd(k.prework.fecha)}`:'Sin cargar'}</dd>
+        <dt>Prework</dt><dd>${(k.prework||k.preworkPdf)?[k.prework&&(k.prework.id?`<a href="${esc(blobUrl(k.prework.id))}" target="_blank" rel="noopener">Excel: ${esc(k.prework.archivo)}</a>`:`Excel: ${esc(k.prework.archivo)}`)+`, ${fd(k.prework.fecha)}`, k.preworkPdf&&`<a href="${esc(blobUrl(k.preworkPdf.id))}" target="_blank" rel="noopener">PDF: ${esc(k.preworkPdf.archivo)}</a>, ${fd(k.preworkPdf.fecha)}`].filter(Boolean).join('<br>'):'Sin cargar'}</dd>
         <dt>Presentación</dt><dd>${k.presentacion?`<a href="${esc(blobUrl(k.presentacion.id))}" target="_blank" rel="noopener">${esc(k.presentacion.nombre)}</a>, cargada el ${fd(k.presentacion.fecha)}`:'Sin cargar'}</dd>
         <dt>Descripción</dt><dd class="txt">${esc(k.descripcion||'—')}</dd>
         <dt>Propósito</dt><dd class="txt">${esc(k.proposito||'—')}</dd>
@@ -972,7 +973,7 @@ document.addEventListener('click', e=>{
   if(t.dataset.hoja){ if(window.__kaizenReload) window.__kaizenReload(); S.hoja=t.dataset.hoja; try{location.hash=S.hoja;}catch(e){} if(S.view==='proyecto') closeProject(); else render(); return; }
   if(t.dataset.open) return openProject(t.dataset.open);
   if(t.dataset.tab){ S.tab=t.dataset.tab; return render(); }
-  if(t.dataset.paso){ const k=current(); const p=Number(t.dataset.paso); if(k && p!==Number(k.pasoActual)) safeWrite(()=>S.db.doc('kaizens/'+k.id).update({pasoActual:p,actualizado:new Date().toISOString()}), `Paso actualizado: ${STEPS[p-1]}`); return; }
+  if(t.dataset.paso){ const k=current(); const p=Number(t.dataset.paso); if(k && p!==Number(k.pasoActual)) safeWrite(()=>S.db.doc('kaizens/'+k.id).update({pasoActual:p,avance:STEP_AVANCE[p-1],actualizado:new Date().toISOString()}), `Paso actualizado: ${STEPS[p-1]} (avance ${STEP_AVANCE[p-1]}%)`); return; }
   if(t.dataset.editav){ const a=S.avances.find(x=>x.id===t.dataset.editav); return avanceModal(current(),a.etapa,a); }
   if(t.dataset.editpend!==undefined){ return pendModal(current(),Number(t.dataset.editpend)); }
   if(t.dataset.uppres){ return uploadPres(S.kaizens.find(x=>x.id===t.dataset.uppres)); }
@@ -992,7 +993,7 @@ document.addEventListener('click', e=>{
 });
 document.addEventListener('keydown', e=>{
   if(e.key==='Enter' && e.target.matches('tr[data-open]')) openProject(e.target.dataset.open);
-  if(e.key==='Escape'){ if($('#lightbox').classList.contains('open')) $('#lightbox').classList.remove('open'); else if($('#deck').classList.contains('open')) closeDeck(); else closeModal(); }
+  if(e.key==='Escape'){ if($('#lightbox').classList.contains('open')) $('#lightbox').classList.remove('open'); else if($('#deck').classList.contains('open')) closeDeck(); else tryCloseModal(); }
   if($('#deck').classList.contains('open')){ if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();deckGo(1);} if(e.key==='ArrowLeft'){e.preventDefault();deckGo(-1);} }
 });
 $('#lightbox').addEventListener('click',()=>$('#lightbox').classList.remove('open'));
@@ -1011,9 +1012,17 @@ app.addEventListener('change', e=>{ const map={farea:'area',fcoach:'coach',fest:
 
 /* ========= Modales ========= */
 const modal=$('#modal');
-function openModal(html,narrow){ modal.innerHTML=`<div class="mbox ${narrow?'narrow':''}">${html}</div>`; modal.classList.add('open'); const f=modal.querySelector('input,textarea,select'); if(f) f.focus(); }
+function openModal(html,narrow){ modal.innerHTML=`<div class="mbox ${narrow?'narrow':''}">${html}</div>`; modal.dataset.dirty=''; modal.classList.add('open'); const f=modal.querySelector('input,textarea,select'); if(f) f.focus(); }
 function closeModal(){ modal.classList.remove('open'); modal.innerHTML=''; }
-modal.addEventListener('click',e=>{ if(e.target===modal||e.target.closest('[data-close]')) closeModal(); });
+function tryCloseModal(){
+  if(!modal.classList.contains('open')) return;
+  if(modal.dataset.dirty==='1' && !confirm('Tienes cambios sin guardar. Si cierras esta ventana se perderán. ¿Quieres cerrarla de todos modos?')) return;
+  closeModal();
+}
+modal.addEventListener('click',e=>{ if(e.target.closest('[data-close]')) tryCloseModal(); });
+modal.addEventListener('input',()=>{ modal.dataset.dirty='1'; });
+modal.addEventListener('change',()=>{ modal.dataset.dirty='1'; });
+window.addEventListener('beforeunload',e=>{ if(modal.classList.contains('open') && modal.dataset.dirty==='1'){ e.preventDefault(); e.returnValue=''; } });
 const v = id => (modal.querySelector('#'+id)||{}).value ?? '';
 
 /* ========= Importar datos desde la app de Claude ========= */
@@ -1189,7 +1198,7 @@ function projectModal(k){
   openModal(`
   <div class="mhead"><h2>${isNew?'Registrar kaizen':'Editar carátula'}</h2><button data-close aria-label="Cerrar">×</button></div>
   <div class="mbody">
-    <div class="pwbox"><div><b>Cargar desde el Excel de prework</b>${isNew?' <span class="pill st-Atrasado">Obligatorio</span>':''}<div class="hint">${isNew?'Para registrar un kaizen nuevo es obligatorio cargar su prework. ':(k.prework?`Prework cargado: ${esc(k.prework.archivo)}. `:'')}Llena la carátula con los datos de la hoja Pre-work: descripción, propósito, beneficios, impacto al cliente, tipo de evento, fechas, métricos, ahorro estimado y equipo. Revisa los campos y después guarda.</div><div class="hint" id="pw_msg" style="margin-top:6px;font-weight:500"></div></div><label class="btn sm pwbtn">Elegir archivo de prework<input type="file" id="pw_file" accept=".xls,.xlsx,.xlsm" hidden></label></div>
+    <div class="pwbox"><div><b>Cargar el prework (Excel y PDF)</b>${isNew?' <span class="pill st-Atrasado">Obligatorio</span>':''}<div class="hint">${isNew?'Para registrar un kaizen nuevo es obligatorio cargar su prework. ':(k.prework?`Prework cargado: ${esc(k.prework.archivo)}. `:'')}Con el <b>Excel</b>, la carátula se llena sola (descripción, propósito, beneficios, impacto al cliente, tipo de evento, fechas, métricos, ahorro estimado y equipo). El <b>PDF</b> (por ejemplo, el prework firmado) se guarda como evidencia, y sus datos se capturan a mano. Puedes cargar los dos, uno después del otro. Revisa los campos y después guarda.</div>${k.preworkPdf?`<div class="hint">PDF del prework: ${esc(k.preworkPdf.archivo)}.</div>`:''}<div class="hint" id="pw_msg" style="margin-top:6px;font-weight:500"></div></div><label class="btn sm pwbtn">Elegir archivo de prework<input type="file" id="pw_file" accept=".xls,.xlsx,.xlsm,.pdf,application/pdf" hidden></label></div>
     <fieldset><legend>Enfoque del kaizen</legend><div class="fg">
       <label>Clave<input id="f_clave" value="${esc(k.clave??nextClave)}"></label>
       <label class="c2">Nombre del evento<input id="f_nombre" value="${esc(k.nombre)}" required></label>
@@ -1211,7 +1220,7 @@ function projectModal(k){
       <label>Fin planeado<input type="date" id="f_fin" value="${esc(k.fin)}"></label>
       <label>Cierre oficial<input type="date" id="f_cierre" value="${esc(k.fechaCierre)}"></label>
       <label>Paso actual<select id="f_paso">${STEPS.map((s,i)=>`<option value="${i+1}" ${i+1===(Number(k.pasoActual)||1)?'selected':''}>${i+1}. ${s}</option>`).join('')}</select></label>
-      <label>Avance (%)<input type="number" min="0" max="100" id="f_av" value="${esc(k.avance??0)}"></label>
+      <label>Avance (%)<input type="number" min="0" max="100" id="f_av" value="${esc(k.avance??STEP_AVANCE[(Number(k.pasoActual)||1)-1])}"><span class="hint">Se llena solo al elegir el paso; puedes ajustarlo.</span></label>
       <label>Causa de atraso<select id="f_causa"><option value="">Sin atraso o sin registrar</option>${CAUSAS.map(c=>`<option ${c===k.causaAtraso?'selected':''}>${c}</option>`).join('')}</select></label>
       <label style="justify-content:flex-end"><span class="checks"><label><input type="checkbox" id="f_canc" ${k.cancelado?'checked':''}> Cancelado</label></span></label>
       <label class="c4">Observaciones<textarea id="f_obs">${esc(k.observaciones)}</textarea></label>
@@ -1256,9 +1265,17 @@ function projectModal(k){
   msBox.innerHTML=(k.metricosSec||[]).map(msRow).join('');
   modal.querySelector('#ms_add').onclick=()=>{ msBox.insertAdjacentHTML('beforeend',msRow()); const r=msBox.lastElementChild.querySelector('.ms_nom'); if(r) r.focus(); };
   msBox.addEventListener('click',e=>{ const d=e.target.closest('.ms_del'); if(d) d.closest('.ms').remove(); });
-  let pwFile=null;
+  let pwFile=null, pwPdf=null;
+  modal.querySelector('#f_paso').addEventListener('change',e=>{ const n=Number(e.target.value)||1; modal.querySelector('#f_av').value=STEP_AVANCE[n-1]; });
   modal.querySelector('#pw_file').addEventListener('change', async e=>{
-    const f=e.target.files[0]; if(!f) return; const msg=modal.querySelector('#pw_msg'); msg.style.color=''; msg.textContent='Leyendo el prework…';
+    const f=e.target.files[0]; if(!f) return; const msg=modal.querySelector('#pw_msg'); msg.style.color='';
+    if(/pdf/i.test(f.type||'') || /\.pdf$/i.test(f.name)){
+      if(f.size>45*1024*1024){ msg.style.color='var(--bad)'; msg.textContent='El PDF pesa más de 45 MB. Redúcelo e inténtalo de nuevo.'; e.target.value=''; return; }
+      pwPdf={file:f}; msg.style.color='var(--ok)';
+      msg.textContent=`PDF del prework listo: ${f.name}. Se guardará al dar clic en Guardar. ${pwFile?'':'Los datos de la carátula se capturan a mano, o carga también el Excel para llenarlos solos.'}`;
+      e.target.value=''; return;
+    }
+    msg.textContent='Leyendo el prework…';
     try{
       const XLSX=await loadXLSX();
       const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
@@ -1279,7 +1296,7 @@ function projectModal(k){
       if(set('f_ahE',p.ahorro)) done.push('ahorro estimado');
       let nSec=0; (p.secundarios||[]).forEach(s=>{ if(s.nombre && ![...msBox.querySelectorAll('.ms_nom')].some(i=>i.value.trim().toLowerCase()===s.nombre.toLowerCase())){ msBox.insertAdjacentHTML('beforeend',msRow(s)); nSec++; } }); if(nSec) done.push(nSec===1?'métrico secundario':`${nSec} métricos secundarios`);
       if(p.equipo.length){ set('f_eq',p.equipo.map(x=>x.rol?`${x.nombre}, ${x.rol}`:x.nombre).join('\n')); done.push(`equipo (${p.equipo.length} integrantes)`); }
-      if(done.length) pwFile={archivo:f.name,fecha:iso(today())};
+      if(done.length) pwFile={archivo:f.name,fecha:iso(today()),file:f};
       msg.style.color = done.length ? 'var(--ok)' : 'var(--bad)';
       msg.textContent = done.length ? `Se llenó: ${done.join(', ')}. Revisa los datos y da clic en Guardar.${p.notas.length?' '+p.notas.join(' '):''}` : 'El prework no tiene datos en los campos esperados.';
     }catch(err){ msg.style.color='var(--bad)'; msg.textContent='No se pudo leer el archivo. Verifica que sea el formato de prework en Excel y que tengas conexión a internet.'; }
@@ -1288,7 +1305,7 @@ function projectModal(k){
   modal.querySelector('#f_save').onclick = async ()=>{
     const nombre=v('f_nombre').trim();
     const ferr=modal.querySelector('#f_err'); const stop=t=>{ ferr.textContent=t; ferr.scrollIntoView({block:'center',behavior:'smooth'}); };
-    if(isNew && !pwFile){ stop('Carga el Excel de prework antes de registrar el kaizen (recuadro azul al inicio de esta ventana).'); return; }
+    if(isNew && !pwFile && !pwPdf){ stop('Carga el prework (Excel o PDF) antes de registrar el kaizen (recuadro azul al inicio de esta ventana).'); return; }
     if(!nombre){ stop('Escribe el nombre del evento.'); return; }
     if(!modal.querySelector('#f_canc').checked){
       const miss=[]; if(!v('m_nom').trim()) miss.push('nombre del métrico'); if(num(v('m_base'))===null) miss.push('línea base'); if(num(v('m_meta'))===null) miss.push('meta');
@@ -1299,6 +1316,14 @@ function projectModal(k){
     if(pdf && !/pdf/i.test(pdf.type||'') && !/\.pdf$/i.test(pdf.name)){ stop('La presentación debe ser un archivo PDF.'); return; }
     if(pdf && pdf.size>45*1024*1024){ stop('La presentación pesa más de 45 MB. Guárdala como un PDF más ligero e inténtalo de nuevo.'); return; }
     if(v('f_cierre') && !k.fechaCierre && !k.presentacion && !pdf){ stop('Para registrar el cierre oficial, primero sube la presentación del evento en PDF (sección Presentación de cierre).'); return; }
+    let prework=k.prework||null, preworkPdf=k.preworkPdf||null;
+    if(pwFile||pwPdf){
+      const b1=modal.querySelector('#f_save'); const lb1=b1.textContent; b1.disabled=true; b1.textContent='Subiendo prework…';
+      if(pwFile){ prework={archivo:pwFile.archivo,fecha:pwFile.fecha}; try{ const r=await S.assets.upload(pwFile.file); prework.id=r.id; }catch(e){} }
+      if(pwPdf){ try{ const r=await S.assets.upload(pwPdf.file); preworkPdf={archivo:pwPdf.file.name,fecha:iso(today()),id:r.id}; }
+        catch(e){ b1.disabled=false; b1.textContent=lb1; stop('No se pudo subir el PDF del prework. Revisa tu conexión e inténtalo de nuevo.'); return; } }
+      b1.disabled=false; b1.textContent=lb1;
+    }
     let presentacion=k.presentacion||null;
     if(pdf){
       const b0=modal.querySelector('#f_save'); const lb0=b0.textContent; b0.disabled=true; b0.textContent='Subiendo presentación…';
@@ -1314,7 +1339,7 @@ function projectModal(k){
       inicio:v('f_ini'), fin:v('f_fin'), fechaCierre:v('f_cierre'), pasoActual:Number(v('f_paso'))||1, avance:Math.max(0,Math.min(100,Number(v('f_av'))||0)),
       causaAtraso:v('f_causa'), cancelado:modal.querySelector('#f_canc').checked, observaciones:v('f_obs'),
       metrico:{nombre:v('m_nom').trim(),unidad:v('m_uni').trim(),sentido:v('m_sen'),base:num(v('m_base')),meta:num(v('m_meta')),resultado:num(v('m_res'))},
-      prework: pwFile || k.prework || null, presentacion,
+      prework, preworkPdf, presentacion,
       metricosSec:[...modal.querySelectorAll('.ms')].map(r=>({nombre:r.querySelector('.ms_nom').value.trim(),unidad:r.querySelector('.ms_uni').value.trim(),sentido:r.querySelector('.ms_sen').value,base:num(r.querySelector('.ms_base').value),meta:num(r.querySelector('.ms_meta').value),resultado:num(r.querySelector('.ms_res').value)})).filter(x=>x.nombre),
       ahorroEstimado:num(v('f_ahE')), ahorroValidado:num(v('f_ahV')), obsMetricos:v('f_obsm').trim(), equipo,
       actualizado:new Date().toISOString(), actualizadoPor:S.me||null
