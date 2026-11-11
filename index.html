@@ -346,7 +346,7 @@ footer.pie{background:var(--surface2);color:var(--muted);font-size:12.5px;text-a
   .causas{grid-template-columns:1fr 1.5fr}
   .atrwrap{max-height:none;overflow:visible}
   .atrwrap th{position:static}
-  .dashgrid{display:grid;grid-template-columns:34% 1fr;grid-template-areas:"area atr" "pareto atr" "paso atr";gap:6px;align-items:start}
+  .dashgrid{display:grid;grid-template-columns:27% 1fr 22%;grid-template-areas:"area atr paso" "pareto atr paso";grid-template-rows:auto 1fr;gap:6px;align-items:start}
   .dashgrid .dashrow{display:contents}
   .p-area{grid-area:area}.p-atr{grid-area:atr}.p-pareto{grid-area:pareto}.p-paso{grid-area:paso}
   .dashgrid .bar{font-size:9px;grid-template-columns:96px 1fr 20px;gap:5px}
@@ -362,10 +362,11 @@ footer.pie{background:var(--surface2);color:var(--muted);font-size:12.5px;text-a
   .dashgrid .ptable td{line-height:1.25}
   .dashgrid .ptable td>div.hint{display:none}
   .dashgrid .ptable td.hint,.dashgrid .ptable td b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .dashgrid .ptable td.hint{max-width:230px;font-size:9px}
+  .dashgrid .ptable td.hint{max-width:150px;font-size:9px}
+  .dashgrid .p-paso .bar{grid-template-columns:80px 1fr 18px}
   .dashgrid .ptable th,.dashgrid .ptable td{padding:2px 5px!important;line-height:1.15}
   .dashgrid .ptable th{font-size:9px}
-  .dashgrid .ptable td b{max-width:210px}
+  .dashgrid .ptable td b{max-width:170px}
   .dashgrid .ptable td:nth-child(3){white-space:nowrap}
   .dashrow.r1 tbody tr{break-inside:avoid}
   .dashgrid .bars{gap:4px}
